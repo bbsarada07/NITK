@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { EvaluationResult, ExtractedLabData, BiomarkerEntry, BiomarkerValue } from './types/types';
-import { extractLabValues, getGeminiApiKey, setGeminiApiKey } from './services/geminiParser';
+import { extractLabValues } from './services/geminiParser';
 import { evaluateLabsAndSymptoms } from './utils/ruleEngine';
 import { FileUpload } from './components/FileUpload';
 import { SymptomChecklist } from './components/SymptomChecklist';
@@ -43,8 +43,6 @@ export const App: React.FC = () => {
   const [biomarkers, setBiomarkers] = useState<BiomarkerEntry[]>(DEFAULT_MARKERS);
   const [evaluationResults, setEvaluationResults] = useState<EvaluationResult[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
-  const [showApiKeyModal, setShowApiKeyModal] = useState<boolean>(false);
-  const [apiKeyInput, setApiKeyInput] = useState<string>(getGeminiApiKey());
   const [analysisStatus, setAnalysisStatus] = useState<string>('');
 
   // 2. Initial Evaluation on Load
@@ -177,17 +175,14 @@ export const App: React.FC = () => {
           resultsEl.scrollIntoView({ behavior: 'smooth' });
         }
       }, 100);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Error during clinical pattern synthesis:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Failed to analyze lab report. Please verify configuration.';
+      alert(errorMessage);
     } finally {
       setIsAnalyzing(false);
       setAnalysisStatus('');
     }
-  };
-
-  const handleSaveApiKey = () => {
-    setGeminiApiKey(apiKeyInput);
-    setShowApiKeyModal(false);
   };
 
   const loadSamplePreset = (preset: 'iron-deficiency' | 'subclinical-hypo' | 'clear') => {
@@ -296,17 +291,10 @@ export const App: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setShowApiKeyModal(true)}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors border border-slate-200/80"
-              title="Configure Google Gemini API Key"
-            >
-              <svg className="w-3.5 h-3.5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-              </svg>
-              <span className="hidden sm:inline">Gemini API</span>
-            </button>
+            <div className="hidden md:flex items-center gap-1.5 text-xs text-slate-500 mr-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+              <span>Gemini 2.5 Flash</span>
+            </div>
 
             <button
               type="button"
@@ -555,61 +543,6 @@ export const App: React.FC = () => {
           />
         </section>
       </main>
-
-      {/* API Key Modal */}
-      {showApiKeyModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-bold text-slate-900">
-                Google Gemini API Configuration
-              </h3>
-              <button
-                type="button"
-                onClick={() => setShowApiKeyModal(false)}
-                className="text-slate-400 hover:text-slate-600 text-lg leading-none"
-              >
-                &times;
-              </button>
-            </div>
-
-            <p className="text-xs text-slate-600 leading-relaxed">
-              HerChart uses Gemini 2.5 Flash for vision extraction of lab tables. Enter your API key below, or leave it blank to utilize the smart simulated clinical parser for demo lab reports.
-            </p>
-
-            <div className="space-y-1.5">
-              <label htmlFor="gemini-key-input" className="text-xs font-semibold text-slate-700">
-                Gemini API Key
-              </label>
-              <input
-                id="gemini-key-input"
-                type="password"
-                placeholder="AIzaSy..."
-                value={apiKeyInput}
-                onChange={e => setApiKeyInput(e.target.value)}
-                className="w-full px-3 py-2 text-sm bg-slate-50 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/30 focus:border-rose-500 font-mono"
-              />
-            </div>
-
-            <div className="flex items-center justify-end gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setShowApiKeyModal(false)}
-                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveApiKey}
-                className="px-4 py-2 text-xs font-semibold text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow-xs transition-colors"
-              >
-                Save Key
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Footer */}
       <footer className="mt-16 border-t border-slate-200 bg-white py-8 text-center text-xs text-slate-500 print:hidden">
