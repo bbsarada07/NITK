@@ -1,4 +1,4 @@
-import { RuleRecord, RuleTier, EvaluationResult } from '../types';
+import { RuleRecord, RuleTier, EvaluationResult } from '../types/types';
 
 interface RawSource {
   id: string;

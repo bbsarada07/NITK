@@ -1,5 +1,5 @@
 import rawRulesData from '../../rules.json';
-import { ExtractedLabData, EvaluationResult, RuleTier, RuleRecord } from '../types';
+import { ExtractedLabData, EvaluationResult, RuleTier, RuleRecord } from '../types/types';
 
 interface RawRuleRange {
   min: number | null;

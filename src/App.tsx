@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { EvaluationResult, ExtractedLabData } from './types';
+import { EvaluationResult, ExtractedLabData } from './types/types';
 import { extractLabValues, getGeminiApiKey, setGeminiApiKey } from './services/geminiParser';
 import { evaluateLabsAndSymptoms } from './utils/ruleEngine';
 import { FileUpload } from './components/FileUpload';

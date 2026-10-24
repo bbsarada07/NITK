@@ -51,4 +51,3 @@ export interface ExtractedLabData {
   hemoglobin: ExtractedMarker;
   tsh: ExtractedMarker;
 }
-

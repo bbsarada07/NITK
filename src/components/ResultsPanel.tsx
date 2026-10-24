@@ -1,5 +1,5 @@
 import React from 'react';
-import { EvaluationResult } from '../types';
+import { EvaluationResult } from '../types/types';
 
 interface ResultsPanelProps {
   results: EvaluationResult[];
