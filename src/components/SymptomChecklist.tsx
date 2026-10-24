@@ -66,9 +66,11 @@ const CLINICAL_SYMPTOMS: SymptomMetadata[] = [
 ];
 
 export const SymptomChecklist: React.FC<SymptomChecklistProps> = ({
-  selectedSymptoms,
+  selectedSymptoms = [],
   onSymptomToggle
 }) => {
+  const safeSymptoms = selectedSymptoms || [];
+
   const categories: Array<'Energy & Cognition' | 'Cardiorespiratory & Flow' | 'Physical & Metabolic'> = [
     'Energy & Cognition',
     'Cardiorespiratory & Flow',
@@ -88,13 +90,13 @@ export const SymptomChecklist: React.FC<SymptomChecklistProps> = ({
         </div>
         <div className="flex items-center gap-2">
           <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200">
-            {selectedSymptoms.length} logged
+            {safeSymptoms.length} logged
           </span>
-          {selectedSymptoms.length > 0 && (
+          {safeSymptoms.length > 0 && (
             <button
               type="button"
               onClick={() => {
-                selectedSymptoms.forEach(s => onSymptomToggle(s));
+                safeSymptoms.forEach(s => onSymptomToggle(s));
               }}
               className="text-xs text-slate-400 hover:text-slate-600 underline transition-colors"
             >
@@ -119,7 +121,9 @@ export const SymptomChecklist: React.FC<SymptomChecklistProps> = ({
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                 {categorySymptoms.map(item => {
-                  const isChecked = selectedSymptoms.includes(item.name);
+                  const isChecked = safeSymptoms.some(
+                    s => s.toLowerCase().trim() === item.name.toLowerCase().trim()
+                  );
 
                   return (
                     <label

@@ -5,6 +5,8 @@ import { evaluateLabsAndSymptoms } from './utils/ruleEngine';
 import { FileUpload } from './components/FileUpload';
 import { SymptomChecklist } from './components/SymptomChecklist';
 import { ResultsPanel } from './components/ResultsPanel';
+import { DemoPersonaSelector } from './components/DemoPersonaSelector';
+import { DemoPersona, PRIMARY_DEMO_PERSONA } from './utils/demoData';
 
 const DEFAULT_MARKERS: BiomarkerEntry[] = [
   {
@@ -44,6 +46,7 @@ export const App: React.FC = () => {
   const [evaluationResults, setEvaluationResults] = useState<EvaluationResult[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
   const [analysisStatus, setAnalysisStatus] = useState<string>('');
+  const [activePersonaId, setActivePersonaId] = useState<string | null>(null);
 
   // 2. Initial Evaluation on Load
   useEffect(() => {
@@ -86,6 +89,7 @@ export const App: React.FC = () => {
 
   const handleFileRemove = () => {
     setUploadedFile(null);
+    setActivePersonaId(null);
     setEvaluationResults([]);
   };
 
@@ -185,84 +189,87 @@ export const App: React.FC = () => {
     }
   };
 
-  const loadSamplePreset = (preset: 'iron-deficiency' | 'subclinical-hypo' | 'clear') => {
-    if (preset === 'iron-deficiency') {
-      const mockFile = new File(['mock content'], 'Quest_Diagnostic_CBC_Ferritin_2024.pdf', {
-        type: 'application/pdf'
-      });
-      setUploadedFile(mockFile);
-      const newSymptoms = ['fatigue', 'hair loss', 'breathlessness'];
-      const newMarkers: BiomarkerEntry[] = [
-        {
-          marker: 'ferritin',
-          label: 'Serum Ferritin',
-          value: 18,
-          unit: 'ug/L',
-          labRange: '15 - 150 ug/L',
-          description: 'Primary storage protein for iron.'
-        },
-        {
-          marker: 'hemoglobin',
-          label: 'Hemoglobin (Hb)',
-          value: 11.6,
-          unit: 'g/dL',
-          labRange: '11.5 - 15.5 g/dL',
-          description: 'Oxygen-carrying protein in red blood cells.'
-        },
-        {
-          marker: 'tsh',
-          label: 'Thyroid Stimulating Hormone (TSH)',
-          value: 1.8,
-          unit: 'mIU/L',
-          labRange: '0.4 - 4.0 mIU/L',
-          description: 'Master regulator of thyroid output.'
-        }
-      ];
-      setSelectedSymptoms(newSymptoms);
-      setBiomarkers(newMarkers);
-      runEvaluation(newMarkers, newSymptoms);
-    } else if (preset === 'subclinical-hypo') {
-      const mockFile = new File(['mock content'], 'LabCorp_Endocrine_Panel_2024.pdf', {
-        type: 'application/pdf'
-      });
-      setUploadedFile(mockFile);
-      const newSymptoms = ['fatigue', 'cold intolerance', 'brain fog'];
-      const newMarkers: BiomarkerEntry[] = [
-        {
-          marker: 'ferritin',
-          label: 'Serum Ferritin',
-          value: 45,
-          unit: 'ug/L',
-          labRange: '15 - 150 ug/L',
-          description: 'Primary storage protein for iron.'
-        },
-        {
-          marker: 'hemoglobin',
-          label: 'Hemoglobin (Hb)',
-          value: 13.2,
-          unit: 'g/dL',
-          labRange: '11.5 - 15.5 g/dL',
-          description: 'Oxygen-carrying protein in red blood cells.'
-        },
-        {
-          marker: 'tsh',
-          label: 'Thyroid Stimulating Hormone (TSH)',
-          value: 3.4,
-          unit: 'mIU/L',
-          labRange: '0.4 - 4.0 mIU/L',
-          description: 'Master regulator of thyroid output.'
-        }
-      ];
-      setSelectedSymptoms(newSymptoms);
-      setBiomarkers(newMarkers);
-      runEvaluation(newMarkers, newSymptoms);
-    } else {
-      setUploadedFile(null);
-      setSelectedSymptoms([]);
-      const cleared: BiomarkerEntry[] = biomarkers.map(b => ({ ...b, value: '' as BiomarkerValue }));
-      setBiomarkers(cleared);
-      setEvaluationResults([]);
-    }
+  // 1-Click Demo Persona Handler: Instantly hydrates state and evaluates rules with 0ms latency
+  const handleSelectDemoPersona = (persona: DemoPersona) => {
+    setActivePersonaId(persona.id);
+
+    // Mock PDF file representing the persona's lab panel for the file uploader UI
+    const mockFile = new File([persona.mockOcrText], persona.fileName, {
+      type: 'application/pdf'
+    });
+    setUploadedFile(mockFile);
+
+    // Hydrate symptoms
+    setSelectedSymptoms(persona.symptoms);
+
+    // Hydrate biomarkers
+    const updatedBiomarkers: BiomarkerEntry[] = biomarkers.map(b => {
+      if (b.marker === 'ferritin') {
+        return {
+          ...b,
+          value: persona.labData.ferritin ? persona.labData.ferritin.value : ('' as BiomarkerValue),
+          unit: persona.labData.ferritin ? persona.labData.ferritin.unit : b.unit,
+          labRange: persona.labData.ferritin?.labRange || b.labRange
+        };
+      }
+      if (b.marker === 'hemoglobin') {
+        return {
+          ...b,
+          value: persona.labData.hemoglobin ? persona.labData.hemoglobin.value : ('' as BiomarkerValue),
+          unit: persona.labData.hemoglobin ? persona.labData.hemoglobin.unit : b.unit,
+          labRange: persona.labData.hemoglobin?.labRange || b.labRange
+        };
+      }
+      if (b.marker === 'tsh') {
+        return {
+          ...b,
+          value: persona.labData.tsh ? persona.labData.tsh.value : ('' as BiomarkerValue),
+          unit: persona.labData.tsh ? persona.labData.tsh.unit : b.unit,
+          labRange: persona.labData.tsh?.labRange || b.labRange
+        };
+      }
+      return b;
+    });
+    setBiomarkers(updatedBiomarkers);
+
+    // Synchronously evaluate labs and symptoms for instant hackathon demonstration
+    const extractedFormat: ExtractedLabData = {
+      ferritin: {
+        value: persona.labData.ferritin ? persona.labData.ferritin.value : null,
+        unit: persona.labData.ferritin?.unit || 'ng/mL',
+        labRange: persona.labData.ferritin?.labRange || '15 - 150 ng/mL'
+      },
+      hemoglobin: {
+        value: persona.labData.hemoglobin ? persona.labData.hemoglobin.value : null,
+        unit: persona.labData.hemoglobin?.unit || 'g/dL',
+        labRange: persona.labData.hemoglobin?.labRange || '11.5 - 15.5 g/dL'
+      },
+      tsh: {
+        value: persona.labData.tsh ? persona.labData.tsh.value : null,
+        unit: persona.labData.tsh?.unit || 'mIU/L',
+        labRange: persona.labData.tsh?.labRange || '0.4 - 4.0 mIU/L'
+      }
+    };
+
+    const results = evaluateLabsAndSymptoms(extractedFormat, persona.symptoms);
+    setEvaluationResults(results);
+
+    // Smooth scroll down to results section for immediate visual feedback
+    setTimeout(() => {
+      const resultsEl = document.getElementById('results-section');
+      if (resultsEl) {
+        resultsEl.scrollIntoView({ behavior: 'smooth' });
+      }
+    }, 100);
+  };
+
+  const handleResetDemo = () => {
+    setActivePersonaId(null);
+    setUploadedFile(null);
+    setSelectedSymptoms([]);
+    const cleared: BiomarkerEntry[] = biomarkers.map(b => ({ ...b, value: '' as BiomarkerValue }));
+    setBiomarkers(cleared);
+    setEvaluationResults([]);
   };
 
   return (
@@ -293,30 +300,24 @@ export const App: React.FC = () => {
           <div className="flex items-center gap-2">
             <div className="hidden md:flex items-center gap-1.5 text-xs text-slate-500 mr-2">
               <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-              <span>Gemini 2.5 Flash</span>
+              <span>Gemini 3.0 Flash</span>
             </div>
 
             <button
               type="button"
-              onClick={() => loadSamplePreset('iron-deficiency')}
-              className="px-3 py-1.5 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100/80 border border-rose-200 rounded-lg transition-colors"
+              onClick={() => handleSelectDemoPersona(PRIMARY_DEMO_PERSONA)}
+              className="px-3 py-1.5 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100/80 border border-rose-200 rounded-lg transition-colors flex items-center gap-1.5"
             >
-              Demo: Iron Pattern
+              <span>⚡</span>
+              <span>Demo: Sarah (Iron)</span>
             </button>
             <button
               type="button"
-              onClick={() => loadSamplePreset('subclinical-hypo')}
-              className="hidden sm:inline-flex px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
-            >
-              Demo: Thyroid Pattern
-            </button>
-            <button
-              type="button"
-              onClick={() => loadSamplePreset('clear')}
+              onClick={handleResetDemo}
               className="px-2.5 py-1.5 text-xs font-medium text-slate-400 hover:text-slate-600 transition-colors"
               title="Clear all inputs"
             >
-              Clear
+              Reset
             </button>
           </div>
         </div>
@@ -360,6 +361,13 @@ export const App: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {/* Hackathon 1-Click Demo Persona Switcher */}
+        <DemoPersonaSelector
+          onSelectPersona={handleSelectDemoPersona}
+          onReset={handleResetDemo}
+          activePersonaId={activePersonaId}
+        />
 
         {/* STEP 1: Upload Lab Report */}
         <section className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-xs space-y-6">

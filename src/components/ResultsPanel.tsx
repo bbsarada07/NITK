@@ -9,11 +9,14 @@ interface ResultsPanelProps {
 }
 
 export const ResultsPanel: React.FC<ResultsPanelProps> = ({
-  results,
+  results = [],
   uploadedFile,
-  selectedSymptoms,
+  selectedSymptoms = [],
   isLoading = false
 }) => {
+  const safeResults = results || [];
+  const safeSymptoms = selectedSymptoms || [];
+
   const handlePrint = () => {
     window.print();
   };
@@ -48,7 +51,7 @@ export const ResultsPanel: React.FC<ResultsPanelProps> = ({
   }
 
   // Case 1: Empty / Placeholder State
-  if (results.length === 0) {
+  if (safeResults.length === 0) {
     return (
       <div className="bg-white border border-slate-200/80 rounded-2xl p-8 sm:p-12 text-center shadow-sm">
         <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-rose-50 text-rose-500 flex items-center justify-center">
@@ -82,8 +85,8 @@ export const ResultsPanel: React.FC<ResultsPanelProps> = ({
           </div>
           <span className="hidden sm:inline text-slate-300">•</span>
           <div className="flex items-center gap-2">
-            <span className={`w-2 h-2 rounded-full ${selectedSymptoms.length > 0 ? 'bg-emerald-500' : 'bg-slate-300'}`}></span>
-            <span>{selectedSymptoms.length > 0 ? `${selectedSymptoms.length} symptoms logged` : 'Step 2: Log symptoms'}</span>
+            <span className={`w-2 h-2 rounded-full ${safeSymptoms.length > 0 ? 'bg-emerald-500' : 'bg-slate-300'}`}></span>
+            <span>{safeSymptoms.length > 0 ? `${safeSymptoms.length} symptoms logged` : 'Step 2: Log symptoms'}</span>
           </div>
         </div>
       </div>
@@ -98,7 +101,7 @@ export const ResultsPanel: React.FC<ResultsPanelProps> = ({
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800">
-              {results.length} Clinical {results.length === 1 ? 'Pattern' : 'Patterns'} Detected
+              {safeResults.length} Clinical {safeResults.length === 1 ? 'Pattern' : 'Patterns'} Detected
             </span>
             <span className="text-xs text-slate-500">
               Correlated with current medical guidelines
@@ -123,7 +126,7 @@ export const ResultsPanel: React.FC<ResultsPanelProps> = ({
 
       {/* Evaluated Flag Cards */}
       <div className="space-y-4">
-        {results.map((result, idx) => {
+        {safeResults.map((result, idx) => {
           const isDebatedOrBorderline = result.matchedTier.tier_name.toLowerCase().includes('borderline') ||
             result.matchedTier.tier_name.toLowerCase().includes('tier b') ||
             result.matchedTier.tier_name.toLowerCase().includes('debated');
