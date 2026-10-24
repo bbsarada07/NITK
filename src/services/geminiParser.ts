@@ -69,8 +69,7 @@ export async function extractLabValues(file: File): Promise<ExtractedLabData> {
       }
     ],
     config: {
-      responseMimeType: 'application/json',
-      temperature: 0.1
+      responseMimeType: 'application/json'
     }
   });
 
@@ -79,7 +78,8 @@ export async function extractLabValues(file: File): Promise<ExtractedLabData> {
     throw new Error('Gemini API returned an empty response');
   }
 
-  const parsed = JSON.parse(responseText) as Partial<ExtractedLabData>;
+  const cleanJsonText = responseText.replace(/```json/gi, '').replace(/```/g, '').trim();
+  const parsed = JSON.parse(cleanJsonText) as Partial<ExtractedLabData>;
 
   return {
     ferritin: {
