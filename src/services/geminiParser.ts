@@ -53,7 +53,7 @@ export async function extractLabValues(file: File): Promise<ExtractedLabData> {
     "}";
 
   const response = await ai.models.generateContent({
-    model: 'gemini-2.0-flash',
+    model: 'gemini-3.8-flash',
     contents: [
       {
         role: 'user',
@@ -69,7 +69,8 @@ export async function extractLabValues(file: File): Promise<ExtractedLabData> {
       }
     ],
     config: {
-      responseMimeType: 'application/json'
+      responseMimeType: 'application/json',
+      temperature: 0.1
     }
   });
 
