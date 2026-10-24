@@ -1,0 +1,26 @@
+{
+  "name": "herchart",
+  "version": "1.0.0",
+  "description": "HerChart - Clinical rules loader, gate validator, and lab tier evaluator",
+  "main": "dist/evaluator/index.js",
+  "types": "dist/evaluator/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "node --loader ts-node/esm tests/runAllTests.ts || tsx tests/runAllTests.ts || node dist/tests/runAllTests.js",
+    "test:runner": "tsc && node dist/tests/runAllTests.js"
+  },
+  "keywords": [
+    "clinical",
+    "rules",
+    "evaluator",
+    "herchart",
+    "iron",
+    "thyroid"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.6.0"
+  }
+}

@@ -1,0 +1,209 @@
+{
+  "schemaVersion": "1.0.0",
+  "rules": [
+    {
+      "marker": "ferritin",
+      "population": {
+        "description": "adult, female, non-pregnant",
+        "sex": "female",
+        "pregnant": false,
+        "minAgeYears": 18,
+        "maxAgeYears": null
+      },
+      "unit": {
+        "canonical": "ug/L",
+        "conversions": [
+          { "from": "ng/mL", "multiplier": 1 },
+          { "from": "µg/L", "multiplier": 1 }
+        ]
+      },
+      "tierCutoffs": [
+        {
+          "id": "A",
+          "label": "Below WHO deficiency cutoff (<15 ug/L)",
+          "ranges": [{ "min": null, "minInclusive": false, "max": 15, "maxInclusive": false }],
+          "sourceIds": ["who-ferritin-2020"],
+          "status": "VERIFIED"
+        },
+        {
+          "id": "B",
+          "label": "Borderline (15 to <30 ug/L); some guidelines flag this range in symptomatic women",
+          "ranges": [{ "min": 15, "minInclusive": true, "max": 30, "maxInclusive": false }],
+          "sourceIds": ["utsw-low-iron-slides", "pmc8350021"],
+          "status": "VERIFIED_RECHECK_ORIGINAL"
+        }
+      ],
+      "symptomTriggers": [
+        { "id": "fatigue", "label": "Fatigue", "sourceId": "iron-symptoms-review" },
+        { "id": "hair_loss", "label": "Hair loss", "sourceId": "iron-symptoms-review" },
+        { "id": "heavy_periods", "label": "Heavy periods", "sourceId": "iron-symptoms-review" },
+        { "id": "breathlessness", "label": "Breathlessness", "sourceId": "iron-symptoms-review" },
+        { "id": "brittle_nails", "label": "Brittle nails", "sourceId": "iron-symptoms-review" },
+        { "id": "pale_skin", "label": "Pale skin", "sourceId": "iron-symptoms-review" },
+        { "id": "chest_pain", "label": "Chest pain", "sourceId": "iron-symptoms-review" },
+        { "id": "dizziness", "label": "Dizziness", "sourceId": "iron-symptoms-review" }
+      ],
+      "minSymptoms": {
+        "value": 2,
+        "reason": "Engineering default, not clinically validated: the guide requires a minimum but gives no sourced number. 2 avoids flagging on a single nonspecific symptom such as fatigue."
+      },
+      "flagMessage": {
+        "pattern": "Your ferritin ({value} {unit}) is {tierLabel} per {source} ({year}). Lab range: {labRange}. You also logged symptoms linked to low iron in {symptomSource}: {matchedSymptoms}. This is a pattern worth discussing with a doctor, not a diagnosis. {caveat}",
+        "valueOnly": "Your ferritin ({value} {unit}) is {tierLabel} per {source} ({year}). Lab range: {labRange}. This is a single value; it is worth mentioning to a doctor. {caveat}"
+      },
+      "doctorQuestions": [
+        "Could infection or inflammation be affecting my ferritin result, and should CRP or transferrin saturation (TSAT) be checked?",
+        "My ferritin is inside my lab's range but below a guideline threshold. Does that threshold apply to me given my symptoms?",
+        "Should this test be repeated, and what else could explain my symptoms?"
+      ],
+      "caveats": [
+        { "text": "Ferritin is an acute-phase marker and can look normal during infection or inflammation; in inflammation, thresholds such as <100 are used instead.", "sourceId": "utsw-low-iron-slides" },
+        { "text": "The cutoff is debated: 15 gives high specificity but lower sensitivity; 30 gives higher sensitivity but lower specificity.", "sourceId": "utsw-low-iron-slides" },
+        { "text": "This is a single test and only a snapshot. Tell your doctor about any medications or supplements.", "sourceId": null },
+        { "text": "Lab reference ranges differ by lab and may differ from guideline cutoffs; both are shown side by side.", "sourceId": null }
+      ],
+      "sources": [
+        { "id": "who-ferritin-2020", "name": "WHO guideline on use of ferritin concentrations to assess iron status in individuals and populations", "year": 2020, "link": null, "status": "VERIFIED" },
+        { "id": "utsw-low-iron-slides", "name": "UT Southwestern CME slides: Low Iron, High Stakes", "year": null, "link": null, "status": "VERIFIED_RECHECK_ORIGINAL" },
+        { "id": "pmc8350021", "name": "PMC8350021: threshold ferritin in young women (<50 ug/L linked to early iron deficiency)", "year": null, "link": "https://pmc.ncbi.nlm.nih.gov/articles/PMC8350021/", "status": "VERIFIED" },
+        { "id": "iron-symptoms-review", "name": "Review on symptoms of iron deficiency (specific paper not named in guide)", "year": null, "link": null, "status": "VERIFIED_RECHECK_ORIGINAL" }
+      ],
+      "lastVerified": null
+    },
+    {
+      "marker": "hemoglobin",
+      "population": {
+        "description": "adult, female, non-pregnant",
+        "sex": "female",
+        "pregnant": false,
+        "minAgeYears": 18,
+        "maxAgeYears": null
+      },
+      "unit": {
+        "canonical": "g/dL",
+        "conversions": [
+          { "from": "g/L", "multiplier": 0.1 }
+        ]
+      },
+      "tierCutoffs": [
+        {
+          "id": "A",
+          "label": "Below WHO anemia cutoff for non-pregnant women (<12 g/dL)",
+          "ranges": [{ "min": null, "minInclusive": false, "max": 12, "maxInclusive": false }],
+          "sourceIds": ["who-hb-2024"],
+          "status": "VERIFIED"
+        }
+      ],
+      "symptomTriggers": [
+        { "id": "fatigue", "label": "Fatigue", "sourceId": "iron-symptoms-review" },
+        { "id": "hair_loss", "label": "Hair loss", "sourceId": "iron-symptoms-review" },
+        { "id": "heavy_periods", "label": "Heavy periods", "sourceId": "iron-symptoms-review" },
+        { "id": "breathlessness", "label": "Breathlessness", "sourceId": "iron-symptoms-review" },
+        { "id": "brittle_nails", "label": "Brittle nails", "sourceId": "iron-symptoms-review" },
+        { "id": "pale_skin", "label": "Pale skin", "sourceId": "iron-symptoms-review" },
+        { "id": "chest_pain", "label": "Chest pain", "sourceId": "iron-symptoms-review" },
+        { "id": "dizziness", "label": "Dizziness", "sourceId": "iron-symptoms-review" }
+      ],
+      "minSymptoms": {
+        "value": 2,
+        "reason": "Engineering default, not clinically validated: the guide requires a minimum but gives no sourced number. 2 avoids flagging on a single nonspecific symptom."
+      },
+      "flagMessage": {
+        "pattern": "Your hemoglobin ({value} {unit}) is {tierLabel} per {source} ({year}). Lab range: {labRange}. You also logged symptoms linked to low iron in {symptomSource}: {matchedSymptoms}. This is a pattern worth discussing with a doctor, not a diagnosis. {caveat}",
+        "valueOnly": "Your hemoglobin ({value} {unit}) is {tierLabel} per {source} ({year}). Lab range: {labRange}. This is a single value; it is worth mentioning to a doctor. {caveat}"
+      },
+      "doctorQuestions": [
+        "My lab's printed lower limit differs from the WHO cutoff of 12 g/dL. How should I interpret my result?",
+        "Normal hemoglobin does not rule out low iron stores. Should my ferritin or other iron studies be checked?",
+        "Should this test be repeated, and what could explain my symptoms?"
+      ],
+      "caveats": [
+        { "text": "Pregnancy, altitude, smoking and age change hemoglobin cutoffs; pregnancy is excluded by design.", "sourceId": "who-hb-2024" },
+        { "text": "Normal hemoglobin does not rule out iron deficiency; anemia is the last stage.", "sourceId": "utsw-low-iron-slides" },
+        { "text": "Cutoffs are debated: Braat et al. proposed data-driven alternative thresholds, but WHO retained 12 g/dL.", "sourceId": "braat-2024" },
+        { "text": "This is a single test and only a snapshot. Tell your doctor about any medications or supplements.", "sourceId": null },
+        { "text": "A lab's printed lower limit for women can differ from the WHO cutoff (many use about 12 g/dL); both are shown side by side.", "sourceId": null }
+      ],
+      "sources": [
+        { "id": "who-hb-2024", "name": "WHO guideline on haemoglobin cutoffs to define anaemia in individuals and populations", "year": 2024, "link": null, "status": "VERIFIED" },
+        { "id": "braat-2024", "name": "Braat et al., Lancet Haematology 2024;11(4):e253-e264", "year": 2024, "link": null, "status": "VERIFIED" },
+        { "id": "utsw-low-iron-slides", "name": "UT Southwestern CME slides: Low Iron, High Stakes", "year": null, "link": null, "status": "VERIFIED_RECHECK_ORIGINAL" },
+        { "id": "iron-symptoms-review", "name": "Review on symptoms of iron deficiency (specific paper not named in guide)", "year": null, "link": null, "status": "VERIFIED_RECHECK_ORIGINAL" }
+      ],
+      "lastVerified": null
+    },
+    {
+      "marker": "tsh",
+      "population": {
+        "description": "adult, female, non-pregnant",
+        "sex": "female",
+        "pregnant": false,
+        "minAgeYears": 18,
+        "maxAgeYears": null
+      },
+      "unit": {
+        "canonical": "mIU/L",
+        "conversions": [
+          { "from": "uIU/mL", "multiplier": 1 },
+          { "from": "µIU/mL", "multiplier": 1 }
+        ]
+      },
+      "tierCutoffs": [
+        {
+          "id": "A",
+          "label": "Outside the standard reference range (<0.4 or >=4.0 mIU/L)",
+          "ranges": [
+            { "min": null, "minInclusive": false, "max": 0.4, "maxInclusive": false },
+            { "min": 4.0, "minInclusive": true, "max": null, "maxInclusive": false }
+          ],
+          "sourceIds": ["thyroid-guidance"],
+          "status": "VERIFIED_RECHECK_ORIGINAL"
+        },
+        {
+          "id": "B",
+          "label": "Inside the standard range but at or above the debated 2.5 mIU/L upper limit (2.5 to <4.0 mIU/L)",
+          "ranges": [{ "min": 2.5, "minInclusive": true, "max": 4.0, "maxInclusive": false }],
+          "sourceIds": ["thyroid-guidance"],
+          "status": "VERIFIED_RECHECK_ORIGINAL"
+        }
+      ],
+      "symptomTriggers": [
+        { "id": "fatigue", "label": "Fatigue", "sourceId": "thyroid-symptoms-review" },
+        { "id": "cold_intolerance", "label": "Cold intolerance", "sourceId": "thyroid-symptoms-review" },
+        { "id": "weight_change", "label": "Weight change", "sourceId": "thyroid-symptoms-review" },
+        { "id": "cycle_changes", "label": "Cycle changes / irregular periods", "sourceId": "thyroid-symptoms-review" },
+        { "id": "muscle_weakness", "label": "Muscle weakness", "sourceId": "thyroid-symptoms-review" },
+        { "id": "thinning_hair", "label": "Thinning hair", "sourceId": "thyroid-symptoms-review" },
+        { "id": "memory_problems", "label": "Memory problems", "sourceId": "thyroid-symptoms-review" },
+        { "id": "constipation", "label": "Constipation", "sourceId": "thyroid-symptoms-review" },
+        { "id": "dry_skin", "label": "Dry skin", "sourceId": "thyroid-symptoms-review" },
+        { "id": "hoarse_voice", "label": "Hoarse voice", "sourceId": "thyroid-symptoms-review" }
+      ],
+      "minSymptoms": {
+        "value": 2,
+        "reason": "Engineering default, not clinically validated: the guide requires a minimum but gives no sourced number. Most listed thyroid symptoms are nonspecific, so a single one should not trigger a pattern flag."
+      },
+      "flagMessage": {
+        "pattern": "Your TSH ({value} {unit}) is {tierLabel} per {source} ({year}). Lab range: {labRange}. You also logged symptoms linked to thyroid dysfunction in {symptomSource}: {matchedSymptoms}. This is a pattern worth discussing with a doctor, not a diagnosis. {caveat}",
+        "valueOnly": "Your TSH ({value} {unit}) is {tierLabel} per {source} ({year}). Lab range: {labRange}. This is a single value; it is worth mentioning to a doctor. {caveat}"
+      },
+      "doctorQuestions": [
+        "Should free T4 be checked alongside my TSH?",
+        "Should thyroid antibodies be tested?",
+        "My TSH is inside my lab's range but above 2.5 mIU/L, which some experts argue is the upper limit. Is that relevant for me given my age and symptoms?"
+      ],
+      "caveats": [
+        { "text": "TSH alone cannot establish thyroid status; free T4 and antibodies are needed for context.", "sourceId": "thyroid-guidance" },
+        { "text": "The upper limit is heavily debated (2.5 vs 4.0 mIU/L); the lower tier is a debated threshold, not a diagnosis.", "sourceId": "thyroid-guidance" },
+        { "text": "Pregnancy ranges are trimester-specific and are excluded by design; older adults' values shift upward.", "sourceId": "thyroid-guidance" },
+        { "text": "This is a single test and only a snapshot. Tell your doctor about any medications or supplements.", "sourceId": null },
+        { "text": "Lab reference ranges differ by lab; both are shown side by side.", "sourceId": null }
+      ],
+      "sources": [
+        { "id": "thyroid-guidance", "name": "ATA / ETA / Indian Thyroid Society guidance (specific document not named in guide)", "year": null, "link": null, "status": "VERIFIED_RECHECK_ORIGINAL" },
+        { "id": "thyroid-symptoms-review", "name": "Thyroid dysfunction symptoms review (specific paper not named in guide)", "year": null, "link": null, "status": "VERIFIED_RECHECK_ORIGINAL" }
+      ],
+      "lastVerified": null
+    }
+  ]
+}
