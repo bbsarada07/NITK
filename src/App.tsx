@@ -1,19 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { EvaluationResult, ExtractedLabData } from './types/types';
+import { EvaluationResult, ExtractedLabData, BiomarkerEntry, BiomarkerValue } from './types/types';
 import { extractLabValues, getGeminiApiKey, setGeminiApiKey } from './services/geminiParser';
 import { evaluateLabsAndSymptoms } from './utils/ruleEngine';
 import { FileUpload } from './components/FileUpload';
 import { SymptomChecklist } from './components/SymptomChecklist';
 import { ResultsPanel } from './components/ResultsPanel';
-
-interface BiomarkerEntry {
-  marker: string;
-  label: string;
-  value: number | '';
-  unit: string;
-  labRange: string;
-  description: string;
-}
 
 const DEFAULT_MARKERS: BiomarkerEntry[] = [
   {
@@ -113,10 +104,13 @@ export const App: React.FC = () => {
 
   const handleMarkerValueChange = (markerKey: string, newValue: string) => {
     setBiomarkers(prev => {
-      const updated = prev.map(b => {
+      const updated: BiomarkerEntry[] = prev.map(b => {
         if (b.marker === markerKey) {
-          const num = newValue === '' ? '' : parseFloat(newValue);
-          return { ...b, value: isNaN(num as number) ? '' : num };
+          if (newValue.trim() === '') {
+            return { ...b, value: '' as BiomarkerValue };
+          }
+          const parsed = parseFloat(newValue);
+          return { ...b, value: (isNaN(parsed) ? '' : parsed) as BiomarkerValue };
         }
         return b;
       });
@@ -270,7 +264,7 @@ export const App: React.FC = () => {
     } else {
       setUploadedFile(null);
       setSelectedSymptoms([]);
-      const cleared = biomarkers.map(b => ({ ...b, value: '' as const }));
+      const cleared: BiomarkerEntry[] = biomarkers.map(b => ({ ...b, value: '' as BiomarkerValue }));
       setBiomarkers(cleared);
       setEvaluationResults([]);
     }

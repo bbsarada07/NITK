@@ -3,6 +3,8 @@
  * Clinical types for biomarker rule records, guideline tiers, and evaluation results.
  */
 
+export type BiomarkerValue = number | '';
+
 export interface RuleTier {
   tier_name: string;
   cutoff_condition: string;
@@ -29,10 +31,19 @@ export interface EvaluationResult {
   matchedSymptoms: string[];
 }
 
+export interface BiomarkerEntry {
+  marker: string;
+  label: string;
+  value: BiomarkerValue;
+  unit: string;
+  labRange: string;
+  description: string;
+}
+
 export interface MarkerInput {
   marker: string;
   displayName: string;
-  value: number | '';
+  value: BiomarkerValue;
   unit: string;
   labRange: string;
   standardLow: number;
