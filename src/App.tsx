@@ -300,7 +300,7 @@ export const App: React.FC = () => {
           <div className="flex items-center gap-2">
             <div className="hidden md:flex items-center gap-1.5 text-xs text-slate-500 mr-2">
               <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-              <span>Gemini 3.0 Flash</span>
+              <span>Gemini 2.0 Flash</span>
             </div>
 
             <button

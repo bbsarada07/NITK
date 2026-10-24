@@ -18,9 +18,16 @@ export function fileToBase64(file: File): Promise<string> {
 }
 
 /**
+ * Stable, officially supported production models in order of priority.
+ * gemini-2.0-flash is current generation; gemini-1.5-flash provides backwards compatibility.
+ */
+const SUPPORTED_MODELS = ['gemini-2.0-flash', 'gemini-1.5-flash'];
+
+/**
  * Extracts lab values (ferritin, hemoglobin, tsh) from an uploaded image or PDF using Google Gemini API.
  * 
  * Enforces secure retrieval of the API key exclusively via import.meta.env.VITE_GEMINI_API_KEY.
+ * Includes multi-model fallback and bulletproof error handling with user-friendly diagnostics.
  */
 export async function extractLabValues(file: File): Promise<ExtractedLabData> {
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
@@ -52,49 +59,82 @@ export async function extractLabValues(file: File): Promise<ExtractedLabData> {
     "  \"tsh\": { \"value\": number | null, \"unit\": string | null, \"labRange\": string | null }" +
     "}";
 
-  const response = await ai.models.generateContent({
-    model: 'gemini-3.0-flash',
-    contents: [
-      {
-        role: 'user',
-        parts: [
-          { text: `${systemInstruction}\n\n${promptText}` },
-          {
-            inlineData: {
-              mimeType,
-              data: base64Data
-            }
-          }
-        ]
-      }
-    ],
-    config: {
-      responseMimeType: 'application/json'
-    }
-  });
+  let responseText = '';
+  let lastError: unknown = null;
 
-  const responseText = response.text || '';
-  if (!responseText) {
-    throw new Error('Gemini API returned an empty response');
+  // Attempt extraction with stable production models (primary: gemini-2.0-flash, fallback: gemini-1.5-flash)
+  for (const modelName of SUPPORTED_MODELS) {
+    try {
+      const response = await ai.models.generateContent({
+        model: modelName,
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              { text: `${systemInstruction}\n\n${promptText}` },
+              {
+                inlineData: {
+                  mimeType,
+                  data: base64Data
+                }
+              }
+            ]
+          }
+        ],
+        config: {
+          responseMimeType: 'application/json'
+        }
+      });
+
+      if (response && response.text) {
+        responseText = response.text;
+        break; // Successfully generated content
+      }
+    } catch (err: unknown) {
+      lastError = err;
+      console.warn(`[HerChart] Gemini model ${modelName} call failed, attempting fallback if available:`, err);
+    }
   }
 
-  const parsed = JSON.parse(responseText) as Partial<ExtractedLabData>;
+  // Robust error handling: Format clean, human-friendly error messages rather than raw JSON or 404 objects
+  if (!responseText) {
+    const rawError = lastError instanceof Error ? lastError.message : String(lastError || '');
 
-  return {
-    ferritin: {
-      value: typeof parsed.ferritin?.value === 'number' ? parsed.ferritin.value : null,
-      unit: parsed.ferritin?.unit || null,
-      labRange: parsed.ferritin?.labRange || null
-    },
-    hemoglobin: {
-      value: typeof parsed.hemoglobin?.value === 'number' ? parsed.hemoglobin.value : null,
-      unit: parsed.hemoglobin?.unit || null,
-      labRange: parsed.hemoglobin?.labRange || null
-    },
-    tsh: {
-      value: typeof parsed.tsh?.value === 'number' ? parsed.tsh.value : null,
-      unit: parsed.tsh?.unit || null,
-      labRange: parsed.tsh?.labRange || null
+    if (rawError.includes('404') || rawError.toLowerCase().includes('not found')) {
+      throw new Error('AI Parsing Failed: The requested Gemini model was not found. Please verify the model version or API key configuration.');
     }
-  };
+    if (rawError.includes('401') || rawError.includes('403') || rawError.toLowerCase().includes('api key')) {
+      throw new Error('AI Parsing Failed: Invalid or unauthorized Gemini API key. Please check your VITE_GEMINI_API_KEY.');
+    }
+    if (rawError.includes('429') || rawError.toLowerCase().includes('quota') || rawError.toLowerCase().includes('resource exhausted')) {
+      throw new Error('AI Parsing Failed: Gemini API rate limit or quota exceeded. Please wait a moment and try again.');
+    }
+
+    throw new Error('AI Parsing Failed: Please verify the model version or API key configuration.');
+  }
+
+  try {
+    const parsed = JSON.parse(responseText) as Partial<ExtractedLabData>;
+
+    return {
+      ferritin: {
+        value: typeof parsed.ferritin?.value === 'number' ? parsed.ferritin.value : null,
+        unit: parsed.ferritin?.unit || null,
+        labRange: parsed.ferritin?.labRange || null
+      },
+      hemoglobin: {
+        value: typeof parsed.hemoglobin?.value === 'number' ? parsed.hemoglobin.value : null,
+        unit: parsed.hemoglobin?.unit || null,
+        labRange: parsed.hemoglobin?.labRange || null
+      },
+      tsh: {
+        value: typeof parsed.tsh?.value === 'number' ? parsed.tsh.value : null,
+        unit: parsed.tsh?.unit || null,
+        labRange: parsed.tsh?.labRange || null
+      }
+    };
+  } catch (parseError) {
+    console.error('[HerChart] JSON parsing failed for response:', responseText, parseError);
+    throw new Error('AI Parsing Failed: Model output could not be parsed into structured lab data.');
+  }
 }
