@@ -30,3 +30,6 @@ Run against the production build (`npm run build && npx vite preview`) in headle
 | 24 | Live: AI plain-language summary | Not run | Not run | Needs `GEMINI_API_KEY` on Vercel |
 | 25 | Live: production smoke test of 3 samples + print on her-chart.vercel.app | Not run | Not run | Branch not yet deployed |
 | 26 | Real browser print dialog → Save as PDF | Not run | Not run | Emulated only |
+| 27 | `/api/health` = not_configured → upload drop zone and summary toggle replaced by "AI features are unavailable…" notice; configured → controls shown | n/a | Pass | Mocked health endpoint, session 2 |
+| 28 | Sources modal renders the 4 newly confirmed links; no "null"/"undefined" anywhere | n/a | Pass | Session 2 |
+| 29 | Model fallback (403/404/429 → one retry) and health route | — | — | Pass (unit tests with mocks) |
