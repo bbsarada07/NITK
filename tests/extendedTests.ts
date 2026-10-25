@@ -5,7 +5,9 @@ import { checkEligibility, parseDecimal, validateMarker } from '../src/lib/input
 import { humanizeStatus, sourceCitation } from '../src/lib/format';
 import { hasUrgentSymptom, overlappingSymptoms } from '../src/lib/safety';
 import { evaluateMarkers } from '../src/lib/evaluate';
-import { explainResults, toExplainItems } from '../src/lib/api';
+import { checkAiHealth, explainResults, toExplainItems } from '../src/lib/api';
+import { fallbackModelId, generateWithFallback, isRetryableModelError, modelId } from '../api/_lib/http';
+import healthHandler, { healthStatus } from '../api/health';
 import { SAMPLES } from '../src/lib/samples';
 import { validateExtraction } from '../api/_lib/extractSchema';
 import { parseExplainItems, passesGuard, templateExplanation } from '../api/_lib/guard';
@@ -245,4 +247,93 @@ export async function runExtendedTests(
     assert.strictEqual(out.source, 'ai');
   });
   globalThis.fetch = realFetch;
+
+  console.log('\n--- 18. AI model fallback and health route (mocked, no network) ---');
+  const savedEnv = { key: process.env.GEMINI_API_KEY, model: process.env.GEMINI_MODEL, fb: process.env.GEMINI_FALLBACK_MODEL };
+  delete process.env.GEMINI_MODEL;
+  delete process.env.GEMINI_FALLBACK_MODEL;
+  const apiError = (status: number) => Object.assign(new Error(`got status: ${status}`), { status });
+
+  for (const status of [403, 404, 429]) {
+    await runTestAsync(`Status ${status} on primary model -> exactly one retry on the fallback model`, async () => {
+      const calls: string[] = [];
+      const out = await generateWithFallback(async model => {
+        calls.push(model);
+        if (calls.length === 1) throw apiError(status);
+        return 'ok';
+      });
+      assert.strictEqual(out, 'ok');
+      assert.deepStrictEqual(calls, [modelId(), fallbackModelId()]);
+      assert.notStrictEqual(calls[0], calls[1]);
+    });
+  }
+  await runTestAsync('Fallback also failing -> error propagates after exactly 2 calls (no second retry)', async () => {
+    let n = 0;
+    await assert.rejects(generateWithFallback(async () => { n++; throw apiError(429); }));
+    assert.strictEqual(n, 2);
+  });
+  await runTestAsync('Non-retryable error (500) -> no retry', async () => {
+    let n = 0;
+    await assert.rejects(generateWithFallback(async () => { n++; throw apiError(500); }));
+    assert.strictEqual(n, 1);
+  });
+  await runTestAsync('Aborted request (timeout) -> no retry', async () => {
+    const c = new AbortController();
+    c.abort();
+    let n = 0;
+    await assert.rejects(generateWithFallback(async () => { n++; throw apiError(429); }, c.signal));
+    assert.strictEqual(n, 1);
+  });
+  await runTestAsync('Fallback model equal to primary -> no pointless retry', async () => {
+    process.env.GEMINI_FALLBACK_MODEL = modelId();
+    let n = 0;
+    await assert.rejects(generateWithFallback(async () => { n++; throw apiError(404); }));
+    assert.strictEqual(n, 1);
+    delete process.env.GEMINI_FALLBACK_MODEL;
+  });
+  runTest('Retryable detection covers status codes and Google error names', () => {
+    assert.ok(isRetryableModelError({ status: 403 }));
+    assert.ok(isRetryableModelError(new Error('RESOURCE_EXHAUSTED: quota')));
+    assert.ok(!isRetryableModelError(new Error('socket hang up')));
+    assert.ok(!isRetryableModelError(null));
+  });
+
+  const callHealth = (method: string) => {
+    let code = 0;
+    let body: unknown;
+    const res = { status(c: number) { code = c; return res; }, json(b: unknown) { body = b; }, setHeader() {} };
+    healthHandler({ method, headers: {} }, res);
+    return { code, body, text: JSON.stringify(body) };
+  };
+  runTest('Health: key set -> {"ai":"configured"} and nothing else (no key, no model)', () => {
+    process.env.GEMINI_API_KEY = 'test-secret-value-123';
+    process.env.GEMINI_MODEL = 'some-model-name';
+    const r = callHealth('GET');
+    assert.strictEqual(r.code, 200);
+    assert.deepStrictEqual(r.body, { ai: 'configured' });
+    assert.ok(!r.text.includes('test-secret') && !r.text.includes('some-model'));
+  });
+  runTest('Health: key missing or blank -> {"ai":"not_configured"}', () => {
+    delete process.env.GEMINI_API_KEY;
+    assert.deepStrictEqual(callHealth('GET').body, { ai: 'not_configured' });
+    process.env.GEMINI_API_KEY = '   ';
+    assert.deepStrictEqual(healthStatus(), { ai: 'not_configured' });
+  });
+  runTest('Health: non-GET -> 405', () => {
+    assert.strictEqual(callHealth('POST').code, 405);
+  });
+  await runTestAsync('UI health check: unknown on network failure, parses configured/not_configured', async () => {
+    globalThis.fetch = (async () => { throw new Error('offline'); }) as typeof fetch;
+    assert.strictEqual(await checkAiHealth(), 'unknown');
+    globalThis.fetch = (async () => new Response(JSON.stringify({ ai: 'not_configured' }), { status: 200 })) as typeof fetch;
+    assert.strictEqual(await checkAiHealth(), 'not_configured');
+    globalThis.fetch = (async () => new Response('<html>', { status: 200 })) as typeof fetch;
+    assert.strictEqual(await checkAiHealth(), 'unknown');
+    globalThis.fetch = realFetch;
+  });
+
+  for (const [k, v] of [['GEMINI_API_KEY', savedEnv.key], ['GEMINI_MODEL', savedEnv.model], ['GEMINI_FALLBACK_MODEL', savedEnv.fb]] as const) {
+    if (v === undefined) delete process.env[k];
+    else process.env[k] = v;
+  }
 }

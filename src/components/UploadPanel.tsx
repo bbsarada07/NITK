@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import type { ExtractedRow } from '../../api/_lib/extractSchema';
-import { extractReport, MAX_UPLOAD_BYTES, UPLOAD_MIME } from '../lib/api';
+import { AI_UNAVAILABLE, extractReport, MAX_UPLOAD_BYTES, UPLOAD_MIME } from '../lib/api';
 import { matchUnit, unitOptions, type MarkerId } from '../lib/rules';
 import type { MarkerFormValue } from '../lib/input';
 import { markerDisplayName } from '../evaluator/tierEvaluator';
@@ -30,7 +30,13 @@ function toRow(r: ExtractedRow): Row {
   };
 }
 
-export function UploadPanel({ onUse }: { onUse: (rows: Array<{ marker: MarkerId; form: MarkerFormValue }>) => void }) {
+export function UploadPanel({
+  onUse,
+  aiDisabled = false
+}: {
+  onUse: (rows: Array<{ marker: MarkerId; form: MarkerFormValue }>) => void;
+  aiDisabled?: boolean;
+}) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -75,34 +81,41 @@ export function UploadPanel({ onUse }: { onUse: (rows: Array<{ marker: MarkerId;
         PDF or photo, up to 3 MB. The file is sent once to an AI service to read the numbers and is not stored by HerChart.
         You check every value before anything is compared.
       </p>
-      <div
-        className={`mt-4 flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-6 text-center ${dragging ? 'border-plum bg-plum-soft' : 'border-line bg-bg/60'}`}
-        onDragOver={e => {
-          e.preventDefault();
-          setDragging(true);
-        }}
-        onDragLeave={() => setDragging(false)}
-        onDrop={e => {
-          e.preventDefault();
-          setDragging(false);
-          handleFile(e.dataTransfer.files[0]);
-        }}
-      >
-        <Icon name="upload" className="h-7 w-7 text-plum" />
-        <p className="text-sm">Drag a file here, or</p>
-        <button type="button" className="btn-secondary" disabled={busy} onClick={() => inputRef.current?.click()}>
-          {busy ? 'Reading your report…' : 'Choose a file'}
-        </button>
-        <input
-          ref={inputRef}
-          type="file"
-          accept=".pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/png,image/jpeg,image/webp"
-          className="sr-only"
-          tabIndex={-1}
-          aria-label="Upload a lab report"
-          onChange={e => handleFile(e.target.files?.[0])}
-        />
-      </div>
+      {aiDisabled ? (
+        <p className="mt-4 flex items-start gap-2 rounded-xl border border-line bg-bg/60 p-4 text-sm" role="status">
+          <Icon name="info" className="mt-0.5 h-4 w-4 shrink-0 text-plum" />
+          {AI_UNAVAILABLE}
+        </p>
+      ) : (
+        <div
+          className={`mt-4 flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-6 text-center ${dragging ? 'border-plum bg-plum-soft' : 'border-line bg-bg/60'}`}
+          onDragOver={e => {
+            e.preventDefault();
+            setDragging(true);
+          }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={e => {
+            e.preventDefault();
+            setDragging(false);
+            handleFile(e.dataTransfer.files[0]);
+          }}
+        >
+          <Icon name="upload" className="h-7 w-7 text-plum" />
+          <p className="text-sm">Drag a file here, or</p>
+          <button type="button" className="btn-secondary" disabled={busy} onClick={() => inputRef.current?.click()}>
+            {busy ? 'Reading your report…' : 'Choose a file'}
+          </button>
+          <input
+            ref={inputRef}
+            type="file"
+            accept=".pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/png,image/jpeg,image/webp"
+            className="sr-only"
+            tabIndex={-1}
+            aria-label="Upload a lab report"
+            onChange={e => handleFile(e.target.files?.[0])}
+          />
+        </div>
+      )}
 
       <div aria-live="polite">
         {busy && (

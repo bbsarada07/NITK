@@ -30,6 +30,24 @@ async function postJson(path: string, body: unknown): Promise<{ status: number; 
   }
 }
 
+export type AiHealth = 'configured' | 'not_configured' | 'unknown';
+
+/** GET /api/health. Anything other than a clear answer is 'unknown' (AI calls then fail gracefully). */
+export async function checkAiHealth(): Promise<AiHealth> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 5000);
+  try {
+    const res = await fetch('/api/health', { signal: controller.signal });
+    if (!res.ok) return 'unknown';
+    const data = (await res.json()) as { ai?: unknown };
+    return data.ai === 'configured' || data.ai === 'not_configured' ? data.ai : 'unknown';
+  } catch {
+    return 'unknown';
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();

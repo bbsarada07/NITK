@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import type { EvaluatedMarker } from '../lib/evaluate';
-import { explainResults, type ExplainOutcome } from '../lib/api';
+import { AI_UNAVAILABLE, explainResults, type ExplainOutcome } from '../lib/api';
 import { Icon } from './ui';
 
-export function Explainer({ results }: { results: EvaluatedMarker[] }) {
+export function Explainer({ results, aiDisabled = false }: { results: EvaluatedMarker[]; aiDisabled?: boolean }) {
   const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
   const [outcome, setOutcome] = useState<ExplainOutcome | null>(null);
@@ -30,10 +30,13 @@ export function Explainer({ results }: { results: EvaluatedMarker[] }) {
         <h3 className="flex items-center gap-2 text-lg font-semibold">
           <Icon name="sparkle" className="h-5 w-5 text-plum" /> Plain-language summary
         </h3>
-        <button type="button" className="btn-secondary" aria-expanded={show} aria-controls="explainer-body" onClick={toggle}>
-          {show ? 'Hide summary' : 'Show summary'}
-        </button>
+        {!aiDisabled && (
+          <button type="button" className="btn-secondary" aria-expanded={show} aria-controls="explainer-body" onClick={toggle}>
+            {show ? 'Hide summary' : 'Show summary'}
+          </button>
+        )}
       </div>
+      {aiDisabled && <p className="help mt-2" role="status">{AI_UNAVAILABLE}</p>}
       <div id="explainer-body" aria-live="polite">
         {show && busy && (
           <div className="mt-4 space-y-2" aria-label="Writing summary">

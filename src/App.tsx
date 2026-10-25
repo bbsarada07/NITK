@@ -13,6 +13,7 @@ import { evaluateMarkers, type EvaluatedMarker } from './lib/evaluate';
 import { hasUrgentSymptom, overlappingSymptoms, OVERLAP_MESSAGE, URGENT_MESSAGE } from './lib/safety';
 import { SAMPLES, type Sample } from './lib/samples';
 import { clearAll, exportJson, loadEntries, newId, saveEntries, type SavedEntry } from './lib/storage';
+import { checkAiHealth, type AiHealth } from './lib/api';
 
 type Markers = Record<MarkerId, MarkerFormValue>;
 
@@ -63,8 +64,17 @@ function AppInner() {
   const [sourcesOpen, setSourcesOpen] = useState(false);
   const [entries, setEntries] = useState<SavedEntry[]>(() => loadEntries());
   const [savedFor, setSavedFor] = useState<EvaluatedMarker[] | null>(null);
+  const [aiHealth, setAiHealth] = useState<AiHealth>('unknown');
   const resultsHeading = useRef<HTMLHeadingElement>(null);
   const pendingFocus = useRef(false);
+
+  useEffect(() => {
+    let active = true;
+    checkAiHealth().then(h => active && setAiHealth(h));
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (pendingFocus.current && view === 'main') {
@@ -262,6 +272,7 @@ function AppInner() {
             <section id="entry" aria-labelledby="entry-title" className="scroll-mt-20 space-y-6">
               <h2 id="entry-title" className="text-2xl font-semibold">Enter my results</h2>
               <UploadPanel
+                aiDisabled={aiHealth === 'not_configured'}
                 onUse={rows => {
                   setMarkers(prev => {
                     const next = { ...prev };
@@ -321,7 +332,7 @@ function AppInner() {
                     <div className={`grid gap-6 ${results.length > 1 ? 'lg:grid-cols-2' : 'max-w-3xl'}`}>
                       {results.map(e => <ResultCard key={e.marker} e={e} />)}
                     </div>
-                    <Explainer results={results} />
+                    <Explainer results={results} aiDisabled={aiHealth === 'not_configured'} />
                     <div className="no-print flex flex-col gap-3 sm:flex-row">
                       <button type="button" className="btn-primary" onClick={() => { setView('summary'); window.scrollTo({ top: 0 }); }}>
                         <Icon name="printer" className="h-4 w-4" /> Doctor visit summary

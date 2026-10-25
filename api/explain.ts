@@ -1,6 +1,6 @@
 import { GoogleGenAI } from '@google/genai';
 import { parseExplainItems, passesGuard } from './_lib/guard.js';
-import { modelId, rateLimited, sendError, withTimeout, type ApiRequest, type ApiResponse } from './_lib/http.js';
+import { generateWithFallback, rateLimited, sendError, withTimeout, type ApiRequest, type ApiResponse } from './_lib/http.js';
 
 const SYSTEM_INSTRUCTION = [
   'You rewrite a structured lab-result comparison into plain language for an adult woman, at about a',
@@ -24,11 +24,15 @@ export default async function handler(req: ApiRequest, res: ApiResponse): Promis
   const { signal, done } = withTimeout();
   try {
     const ai = new GoogleGenAI({ apiKey });
-    const response = await ai.models.generateContent({
-      model: modelId(),
-      contents: [{ role: 'user', parts: [{ text: JSON.stringify({ results: items }) }] }],
-      config: { systemInstruction: SYSTEM_INSTRUCTION, abortSignal: signal }
-    });
+    const response = await generateWithFallback(
+      model =>
+        ai.models.generateContent({
+          model,
+          contents: [{ role: 'user', parts: [{ text: JSON.stringify({ results: items }) }] }],
+          config: { systemInstruction: SYSTEM_INSTRUCTION, abortSignal: signal }
+        }),
+      signal
+    );
     const text = (response.text ?? '').replace(/[*#_`]/g, '').trim().slice(0, 900);
     if (!passesGuard(text)) return sendError(res, 422, 'filtered');
     res.setHeader('Cache-Control', 'no-store');

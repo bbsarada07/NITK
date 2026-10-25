@@ -1,6 +1,6 @@
 import { GoogleGenAI, Type } from '@google/genai';
 import { validateExtraction } from './_lib/extractSchema.js';
-import { modelId, rateLimited, sendError, withTimeout, type ApiRequest, type ApiResponse } from './_lib/http.js';
+import { generateWithFallback, rateLimited, sendError, withTimeout, type ApiRequest, type ApiResponse } from './_lib/http.js';
 
 const MAX_FILE_BYTES = 3 * 1024 * 1024;
 const ALLOWED_MIME = new Set(['application/pdf', 'image/png', 'image/jpeg', 'image/webp']);
@@ -54,8 +54,8 @@ export default async function handler(req: ApiRequest, res: ApiResponse): Promis
   const { signal, done } = withTimeout();
   try {
     const ai = new GoogleGenAI({ apiKey });
-    const response = await ai.models.generateContent({
-      model: modelId(),
+    const response = await generateWithFallback(model => ai.models.generateContent({
+      model,
       contents: [
         {
           role: 'user',
@@ -71,7 +71,7 @@ export default async function handler(req: ApiRequest, res: ApiResponse): Promis
         responseSchema: RESPONSE_SCHEMA,
         abortSignal: signal
       }
-    });
+    }), signal);
     let parsed: unknown;
     try {
       parsed = JSON.parse(response.text ?? '');

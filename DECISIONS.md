@@ -28,3 +28,14 @@ Each entry: what was decided, and why. Times are IST.
 24. **(13:16) Native `<dialog>` for modals and the provenance drawer.** It gives Escape-to-close, a focus trap and an inert background with no dependency.
 25. **(13:17) Caveats accordion is open by default.** It meets both "accordion" and "keep all caveats visible".
 26. **(13:18) The multilingual toggle (F9) was not built.** Machine-translated health text with no reviewer is a safety risk, and the time went to tests and safety. The UI is English-only and `lang="en"`.
+
+## Session 2 (25 Oct, 13:46–14:30 IST)
+
+27. **(13:47) Updated only confirmed source fields in `rules.json`.** WHO ferritin (link), WHO haemoglobin (official title and link), Braat 2024 (full title and DOI link) and Galetti 2021 / PMC8350021 (real title and year). Each was confirmed from the WHO publication page or the Europe PMC record. Statuses and `lastVerified` are unchanged; verification stays a human decision (see HUMAN-TO-VERIFY.md).
+28. **(13:47) Unnamed sources were not filled in.** `utsw-low-iron-slides`, `iron-symptoms-review`, `thyroid-guidance` and `thyroid-symptoms-review` keep null year and link. Candidate documents are listed in HUMAN-TO-VERIFY.md only.
+29. **(13:48) Restored dependencies with `npm install`, not `npm ci`.** `node_modules` was found mostly deleted, and `npm ci` failed with EPERM on a rolldown binary locked by still-running vite processes from session 1. `npm install` restored the missing packages without changing `package-lock.json`.
+30. **(13:50) Fallback model defaults to `gemini-3.6-flash`, not `gemini-3.7-flash`.** The brief asked for `gemini-3.7-flash`, but that id does not appear anywhere on ai.google.dev/gemini-api/docs/models (checked 13:50), so a retry on it would always 404. `gemini-3.6-flash` is listed as stable. It can be overridden with `GEMINI_FALLBACK_MODEL`.
+31. **(13:50) One retry only.** It happens only for 401/403/404/429 or Google's PERMISSION_DENIED / RESOURCE_EXHAUSTED / NOT_FOUND / UNAUTHENTICATED errors. There is no retry after a timeout (abort), on other errors, or when the fallback equals the primary model. A second failure goes to the existing generic "AI unavailable" path.
+32. **(13:50) `GET /api/health` returns only `{"ai":"configured"|"not_configured"}`.** It is based on whether `GEMINI_API_KEY` is non-blank. It makes no AI call.
+33. **(13:51) With AI not configured, upload and the summary toggle are replaced by the notice.** The notice reads "AI features are unavailable right now, manual entry works fully", and no disabled buttons are left. If the health check gives no clear answer (network error, or the local preview has no functions), the UI stays enabled; AI calls then fail gracefully as before.
+34. **The "normal" → "reassuring" wording change in `rules.json` is entry 8** (session 1). Confirmed present.
