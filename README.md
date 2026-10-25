@@ -59,7 +59,7 @@ flowchart LR
 
 ## Safety by design
 
-1. **Deterministic rules decide everything.** Tiers and flags come only from `rules.json`, through a tested evaluator (71 tests, including every cutoff boundary). The AI never decides.
+1. **Deterministic rules decide everything.** Tiers and flags come only from `rules.json`, through a tested evaluator (72 tests, including every cutoff boundary). The AI never decides.
 2. **The AI only extracts or rephrases.**
    - *Extraction:* Gemini returns a fixed JSON schema, and the server strictly validates it. Unknown tests are listed as "not covered", never guessed. Instructions inside the document are ignored.
    - *Explanation:* only the evaluator's structured output is sent. The prompt forbids diagnosis, treatment and doses. A banned-phrase filter runs on the server and again in the browser, and any failure falls back to a fixed template.
@@ -95,7 +95,7 @@ flowchart LR
 
 ```bash
 npm ci
-npm test          # 71 tests: evaluator, gates, rendering, schema, guardrails
+npm test          # 72 tests: evaluator, gates, rendering, schema, guardrails
 npm run dev       # http://localhost:3000 (manual entry and samples work; AI routes need Vercel)
 npm run build
 ```

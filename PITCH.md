@@ -34,7 +34,7 @@ No. It is an educational tool and does not diagnose, recommend treatment or sugg
 A chatbot can phrase things differently each time, invent cutoffs or citations, and drift into diagnosis. HerChart's decisions come from a fixed, versioned rules file and a tested engine. The same input always gives the same answer, with the exact source shown. The AI is boxed into two narrow jobs and is never trusted to decide.
 
 **How accurate is it?**
-The comparison logic is exact for what it encodes: 71 automated tests cover every cutoff boundary, unit conversion and gate. Whether those cutoffs are right for a given woman is a clinical judgement, which is why we show sources and caveats and send people to a doctor. Several sources are still marked "being re-checked", and we show that openly.
+The comparison logic is exact for what it encodes: 72 automated tests cover every cutoff boundary, unit conversion and gate. Whether those cutoffs are right for a given woman is a clinical judgement, which is why we show sources and caveats and send people to a doctor. Several sources are still marked "being re-checked", and we show that openly.
 
 **What about privacy?**
 No accounts and no database. Typed values never leave the browser, and history lives in local storage with export and delete. An uploaded report is sent once to an AI service to read the numbers and is not stored or logged by HerChart. The privacy screen says this in plain language.
