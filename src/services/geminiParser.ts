@@ -53,12 +53,15 @@ export async function extractLabValues(file: File): Promise<ExtractedLabData> {
     "}";
 
   const response = await ai.models.generateContent({
-    model: 'gemini-3.8-flash',
+    model: 'gemini-2.0-flash',
+    config: {
+      systemInstruction: systemInstruction
+    },
     contents: [
       {
         role: 'user',
         parts: [
-          { text: `${systemInstruction}\n\n${promptText}` },
+          { text: promptText },
           {
             inlineData: {
               mimeType,
