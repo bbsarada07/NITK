@@ -69,12 +69,10 @@ export function validateExtraction(payload: unknown): ExtractionResult | null {
     if (value === undefined || value === null || low === undefined || high === undefined) return null;
     if (typeof r.confidence !== 'number' || !Number.isFinite(r.confidence) || r.confidence < 0 || r.confidence > 1) return null;
     if (r.unit !== null && r.unit !== undefined && (typeof r.unit !== 'string' || r.unit.length > 16)) return null;
-    let collectionDate: string | null = null;
-    if (typeof r.collectionDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(r.collectionDate)) {
-      collectionDate = r.collectionDate;
-    } else if (r.collectionDate !== null && r.collectionDate !== undefined && r.collectionDate !== '') {
-      return null;
-    }
+    // A date in an unexpected format is dropped (the user can type it), not trusted or guessed.
+    if (r.collectionDate !== null && r.collectionDate !== undefined && typeof r.collectionDate !== 'string') return null;
+    const collectionDate =
+      typeof r.collectionDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(r.collectionDate) ? r.collectionDate : null;
     if (rows.some(x => x.marker === marker)) continue;
     rows.push({
       marker,

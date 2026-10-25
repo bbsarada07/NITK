@@ -174,10 +174,14 @@ export async function runExtendedTests(
   runTest('Extra keys (e.g. injected "diagnosis") reject the payload', () => {
     assert.strictEqual(validateExtraction({ markers: [{ ...good, diagnosis: 'iron deficiency' }] }), null);
   });
-  runTest('Non-numeric value, bad confidence, bad date, or wrong shape are rejected', () => {
+  runTest('Unparseable date is dropped to null, never guessed; non-string date rejects', () => {
+    const r = validateExtraction({ markers: [{ ...good, collectionDate: '01/10/2026' }] });
+    assert.ok(r && r.rows[0].collectionDate === null);
+    assert.strictEqual(validateExtraction({ markers: [{ ...good, collectionDate: 20261001 }] }), null);
+  });
+  runTest('Non-numeric value, bad confidence, or wrong shape are rejected', () => {
     assert.strictEqual(validateExtraction({ markers: [{ ...good, value: '22' }] }), null);
     assert.strictEqual(validateExtraction({ markers: [{ ...good, confidence: 2 }] }), null);
-    assert.strictEqual(validateExtraction({ markers: [{ ...good, collectionDate: 'yesterday' }] }), null);
     assert.strictEqual(validateExtraction({ markers: 'all' }), null);
     assert.strictEqual(validateExtraction('{"markers": []}'), null);
     assert.strictEqual(validateExtraction(null), null);
