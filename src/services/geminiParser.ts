@@ -68,9 +68,7 @@ export async function extractLabValues(file: File): Promise<ExtractedLabData> {
         ]
       }
     ],
-    config: {
-      responseMimeType: 'application/json'
-    }
+
   });
 
   const responseText = response.text || '';
