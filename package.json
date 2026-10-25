@@ -12,6 +12,7 @@
     "build:tsc": "tsc",
     "preview": "vite preview",
     "test": "tsx tests/runAllTests.ts",
+    "preflight": "tsx scripts/preflight.ts",
     "test:runner": "tsc && node dist/tests/runAllTests.js"
   },
   "keywords": [
