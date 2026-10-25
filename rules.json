@@ -63,9 +63,9 @@
         { "text": "Lab reference ranges differ by lab and may differ from guideline cutoffs; both are shown side by side.", "sourceId": null }
       ],
       "sources": [
-        { "id": "who-ferritin-2020", "name": "WHO guideline on use of ferritin concentrations to assess iron status in individuals and populations", "year": 2020, "link": null, "status": "VERIFIED" },
+        { "id": "who-ferritin-2020", "name": "WHO guideline on use of ferritin concentrations to assess iron status in individuals and populations", "year": 2020, "link": "https://www.who.int/publications/i/item/9789240000124", "status": "VERIFIED" },
         { "id": "utsw-low-iron-slides", "name": "UT Southwestern CME slides: Low Iron, High Stakes", "year": null, "link": null, "status": "VERIFIED_RECHECK_ORIGINAL" },
-        { "id": "pmc8350021", "name": "PMC8350021: threshold ferritin in young women (<50 ug/L linked to early iron deficiency)", "year": null, "link": "https://pmc.ncbi.nlm.nih.gov/articles/PMC8350021/", "status": "VERIFIED" },
+        { "id": "pmc8350021", "name": "Galetti V, et al. Threshold ferritin and hepcidin concentrations indicating early iron deficiency in young women based on upregulation of iron absorption. eClinicalMedicine", "year": 2021, "link": "https://pmc.ncbi.nlm.nih.gov/articles/PMC8350021/", "status": "VERIFIED" },
         { "id": "iron-symptoms-review", "name": "Review on symptoms of iron deficiency (specific paper not named in guide)", "year": null, "link": null, "status": "VERIFIED_RECHECK_ORIGINAL" }
       ],
       "lastVerified": null
@@ -125,8 +125,8 @@
         { "text": "A lab's printed lower limit for women can differ from the WHO cutoff (many use about 12 g/dL); both are shown side by side.", "sourceId": null }
       ],
       "sources": [
-        { "id": "who-hb-2024", "name": "WHO guideline on haemoglobin cutoffs to define anaemia in individuals and populations", "year": 2024, "link": null, "status": "VERIFIED" },
-        { "id": "braat-2024", "name": "Braat et al., Lancet Haematology 2024;11(4):e253-e264", "year": 2024, "link": null, "status": "VERIFIED" },
+        { "id": "who-hb-2024", "name": "WHO Guideline on haemoglobin cutoffs to define anaemia in individuals and populations", "year": 2024, "link": "https://www.who.int/publications/i/item/9789240088542", "status": "VERIFIED" },
+        { "id": "braat-2024", "name": "Braat S, et al. Haemoglobin thresholds to define anaemia from age 6 months to 65 years: estimates from international data sources. Lancet Haematol 2024;11(4):e253-e264", "year": 2024, "link": "https://doi.org/10.1016/S2352-3026(24)00030-9", "status": "VERIFIED" },
         { "id": "utsw-low-iron-slides", "name": "UT Southwestern CME slides: Low Iron, High Stakes", "year": null, "link": null, "status": "VERIFIED_RECHECK_ORIGINAL" },
         { "id": "iron-symptoms-review", "name": "Review on symptoms of iron deficiency (specific paper not named in guide)", "year": null, "link": null, "status": "VERIFIED_RECHECK_ORIGINAL" }
       ],
