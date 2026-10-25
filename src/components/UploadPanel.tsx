@@ -98,6 +98,7 @@ export function UploadPanel({ onUse }: { onUse: (rows: Array<{ marker: MarkerId;
           type="file"
           accept=".pdf,.png,.jpg,.jpeg,.webp,application/pdf,image/png,image/jpeg,image/webp"
           className="sr-only"
+          tabIndex={-1}
           aria-label="Upload a lab report"
           onChange={e => handleFile(e.target.files?.[0])}
         />

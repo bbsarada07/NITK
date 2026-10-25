@@ -81,12 +81,12 @@ function RangeGauge({ e }: { e: EvaluatedMarker }) {
             </div>
           );
         })}
-        <div className="absolute top-0" style={{ left: `${pct(value)}%` }}>
-          <div className="-translate-x-1/2 whitespace-nowrap rounded-md bg-ink px-1.5 py-0.5 text-xs font-semibold text-white">
+        <div className="absolute top-0 flex -translate-x-1/2 flex-col items-center" style={{ left: `${pct(value)}%` }}>
+          <div className="whitespace-nowrap rounded-md bg-ink px-1.5 py-0.5 text-xs font-semibold text-white">
             You: {formatNumber(value)}
           </div>
-          <div className="mx-auto h-6 w-0.5 -translate-x-1/2 bg-ink" />
-          <div className="h-3 w-3 -translate-x-1/2 -translate-y-1 rounded-full border-2 border-white bg-ink" />
+          <div className="h-[18px] w-0.5 bg-ink" />
+          <div className="h-3 w-3 rounded-full border-2 border-white bg-ink" />
         </div>
       </div>
       <ul className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
