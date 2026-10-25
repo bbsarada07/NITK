@@ -199,7 +199,10 @@ export function ResultCard({ e }: { e: EvaluatedMarker }) {
 
       {flagged && e.labPosition === 'inside' && (
         <p className="mt-3 rounded-xl border border-plum/30 bg-plum-soft px-3 py-2 text-sm">
-          <strong>Inside your lab’s range, but past a guideline cutoff.</strong> Two yardsticks can give two answers. That is worth discussing with a doctor.
+          <strong>
+            Inside your lab’s range, but {tierKey(e) === 'A' ? 'past a guideline cutoff' : 'in a borderline guideline zone'}.
+          </strong>{' '}
+          Two yardsticks can give two answers. That is worth discussing with a doctor.
         </p>
       )}
 

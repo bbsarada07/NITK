@@ -55,7 +55,15 @@ function Chart({ marker, entries }: { marker: MarkerId; entries: SavedEntry[] })
           <g key={p.e.id}>
             <circle cx={x(i)} cy={y(p.v)} r={5} fill="#6D2E6B" stroke="#fff" strokeWidth={2} />
             <text x={x(i)} y={y(p.v) - 10} textAnchor="middle" fontSize="12" fill="#1F1A2B">{formatNumber(p.v)}</text>
-            <text x={x(i)} y={H - PAD.b + 18} textAnchor="middle" fontSize="11" fill="#6B6478">{formatDate(sortKey(p.e))}</text>
+            <text
+              x={x(i)}
+              y={H - PAD.b + 18}
+              textAnchor={pts.length > 1 && i === 0 ? 'start' : pts.length > 1 && i === pts.length - 1 ? 'end' : 'middle'}
+              fontSize="11"
+              fill="#6B6478"
+            >
+              {formatDate(sortKey(p.e))}
+            </text>
           </g>
         ))}
       </svg>
