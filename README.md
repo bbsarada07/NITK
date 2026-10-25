@@ -4,7 +4,7 @@
 
 HerChart is a privacy-first lab-result explainer for adult women who are not pregnant. It puts your **ferritin**, **hemoglobin** or **TSH** result next to published guideline cutoffs, side by side with your own lab's printed range. It also turns the comparison into questions to take to your doctor.
 
-Live: https://her-chart.vercel.app · Built for Recursion 2026, NIT Karnataka.
+Live: [FILL: live URL, currently https://her-chart.vercel.app] · Repo: [FILL: repo URL] · Built for Recursion 2026, NIT Karnataka.
 
 > HerChart is educational, not a medical device, and does not diagnose.
 
@@ -59,7 +59,7 @@ flowchart LR
 
 ## Safety by design
 
-1. **Deterministic rules decide everything.** Tiers and flags come only from `rules.json`, through a tested evaluator (72 tests, including every cutoff boundary). The AI never decides.
+1. **Deterministic rules decide everything.** Tiers and flags come only from `rules.json`, through a tested evaluator (84 tests, including every cutoff boundary). The AI never decides.
 2. **The AI only extracts or rephrases.**
    - *Extraction:* Gemini returns a fixed JSON schema, and the server strictly validates it. Unknown tests are listed as "not covered", never guessed. Instructions inside the document are ignored.
    - *Explanation:* only the evaluator's structured output is sent. The prompt forbids diagnosis, treatment and doses. A banned-phrase filter runs on the server and again in the browser, and any failure falls back to a fixed template.
@@ -80,14 +80,16 @@ flowchart LR
 
 ## Sources (from `rules.json`)
 
+"Source verified" is the status recorded in `rules.json`. No rule has a human `lastVerified` stamp yet; see `HUMAN-TO-VERIFY.md`.
+
 | Source | Year | Link | Status |
 |---|---|---|---|
-| WHO guideline on use of ferritin concentrations to assess iron status in individuals and populations | 2020 | not recorded | Source verified |
+| WHO guideline on use of ferritin concentrations to assess iron status in individuals and populations | 2020 | [who.int](https://www.who.int/publications/i/item/9789240000124) | Source verified |
 | UT Southwestern CME slides: Low Iron, High Stakes | not recorded | not recorded | Source being re-checked |
-| PMC8350021: threshold ferritin in young women | not recorded | [PMC8350021](https://pmc.ncbi.nlm.nih.gov/articles/PMC8350021/) | Source verified |
+| Galetti V, et al. Threshold ferritin and hepcidin concentrations indicating early iron deficiency in young women… eClinicalMedicine | 2021 | [PMC8350021](https://pmc.ncbi.nlm.nih.gov/articles/PMC8350021/) | Source verified |
 | Review on symptoms of iron deficiency (specific paper not named in guide) | not recorded | not recorded | Source being re-checked |
-| WHO guideline on haemoglobin cutoffs to define anaemia in individuals and populations | 2024 | not recorded | Source verified |
-| Braat et al., Lancet Haematology 2024;11(4):e253-e264 | 2024 | not recorded | Source verified |
+| WHO Guideline on haemoglobin cutoffs to define anaemia in individuals and populations | 2024 | [who.int](https://www.who.int/publications/i/item/9789240088542) | Source verified |
+| Braat S, et al. Haemoglobin thresholds to define anaemia from age 6 months to 65 years. Lancet Haematol 2024;11(4):e253-e264 | 2024 | [DOI](https://doi.org/10.1016/S2352-3026(24)00030-9) | Source verified |
 | ATA / ETA / Indian Thyroid Society guidance (specific document not named in guide) | not recorded | not recorded | Source being re-checked |
 | Thyroid dysfunction symptoms review (specific paper not named in guide) | not recorded | not recorded | Source being re-checked |
 
@@ -95,7 +97,8 @@ flowchart LR
 
 ```bash
 npm ci
-npm test          # 72 tests: evaluator, gates, rendering, schema, guardrails
+npm test          # 84 tests: evaluator, gates, rendering, schema, guardrails, AI fallback
+npm run preflight # tests + build + key/secret scans before deploying
 npm run dev       # http://localhost:3000 (manual entry and samples work; AI routes need Vercel)
 npm run build
 ```
@@ -119,4 +122,4 @@ If the key is missing or the AI service fails, the app shows "AI features are un
 
 ## Team
 
-Team names and roles are not listed here yet.
+[FILL: team member names and roles]

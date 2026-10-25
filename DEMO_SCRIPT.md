@@ -36,3 +36,22 @@ Before you start: open https://her-chart.vercel.app in a fresh window at 100% zo
 8. **Close (2:50–3:00).** "Privacy by design, deterministic rules, a human in the loop. Inside your lab's range does not always mean nothing to discuss."
 
 **If the AI is down during the demo,** say: "And this is the failure mode: manual entry works fully." Then type the values yourself.
+
+## 90-second demo video: shot list
+
+Record at 1440×900, browser zoom 100%, in a fresh window (no saved history). Cursor moves slowly; pause about 1 s after each click.
+
+| # | Time | Screen | Exact click path | Say |
+|---|---|---|---|---|
+| 1 | 0:00–0:08 | Home, hero visible | None (hold on the headline) | "Your lab report says in range. Is that the full story?" |
+| 2 | 0:08–0:15 | Hero | Click **Try a sample** (scrolls to samples) | "Here are three illustrative samples. Nothing is sent anywhere." |
+| 3 | 0:15–0:32 | Hemoglobin result card | Click the card **Hemoglobin inside lab range** (page scrolls to "Your comparison") | "Hemoglobin 11.8. The lab's range starts at 11.5, so the report says fine. The WHO cutoff for non-pregnant women is 12. Inside the lab's range, past a guideline cutoff." |
+| 4 | 0:32–0:40 | Same card, gauge | Hover over the gauge | "Shaded band: the lab's range. Dashed line: the guideline. Pin: you. The chip uses an icon and text, not just colour." |
+| 5 | 0:40–0:52 | Provenance drawer | Click **How this was decided** | "No AI decided this. A tested rules engine reads a public rules file: here's the rule, the cutoff and the source. We even show that our verification gate hasn't passed yet." |
+| 6 | 0:52–0:55 | Card | Press **Esc** to close the drawer | none |
+| 7 | 0:55–1:05 | Questions list | Scroll to **Questions to ask your doctor**, click **Copy all** (toast appears) | "Sourced questions to take to the appointment." |
+| 8 | 1:05–1:15 | Doctor visit summary | Scroll down, click **Doctor visit summary** | "One page: result, both ranges, questions and sources. Save as PDF or copy as text." |
+| 9 | 1:15–1:22 | Summary | Click **← Back to results**, scroll up to **Symptoms**, tick **Chest pain** (red banner appears at top) | "Urgent symptoms always bring up a static emergency message." |
+| 10 | 1:22–1:30 | Header | Click **Privacy** | "No account, no database. Typed values never leave your browser. HerChart is educational and never diagnoses." |
+
+**Backup:** if the live site is slow, record from `npm run build && npx vite preview`. Samples need no network.
