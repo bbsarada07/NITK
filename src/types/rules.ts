@@ -123,4 +123,11 @@ export interface TierEvaluationResult {
   sourcesUsed: Source[];
   demographicsWarning?: string;
   gateCheck: GateVerificationCheck;
+  /** Human-readable marker name (e.g. "TSH"). */
+  displayName: string;
+  /** Tier label adjusted for direction on two-range tiers; null when no tier matched. */
+  tierDisplayLabel: string | null;
+  /** Which side of the guideline cutoffs the value fell on; null when no tier matched. */
+  direction: 'below' | 'above' | 'within' | null;
+  minSymptoms: MinSymptoms;
 }

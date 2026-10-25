@@ -1,570 +1,370 @@
-import React, { useState, useEffect } from 'react';
-import { EvaluationResult, ExtractedLabData, BiomarkerEntry, BiomarkerValue } from './types/types';
-import { extractLabValues } from './services/geminiParser';
-import { evaluateLabsAndSymptoms } from './utils/ruleEngine';
-import { FileUpload } from './components/FileUpload';
-import { SymptomChecklist } from './components/SymptomChecklist';
-import { ResultsPanel } from './components/ResultsPanel';
-import { DemoPersonaSelector } from './components/DemoPersonaSelector';
-import { DemoPersona, PRIMARY_DEMO_PERSONA } from './utils/demoData';
+import { useEffect, useRef, useState } from 'react';
+import { EntryForm, emptyMarkerForm, type ProfileState } from './components/EntryForm';
+import { ResultCard } from './components/ResultCard';
+import { UploadPanel } from './components/UploadPanel';
+import { DoctorSummary, DISCLAIMER } from './components/DoctorSummary';
+import { Explainer } from './components/Explainer';
+import { Trends } from './components/Trends';
+import { PrivacyModal, SourcesModal } from './components/InfoModals';
+import { Icon, ToastProvider, useToast } from './components/ui';
+import { MARKER_IDS, getRule, symptomLabel, type MarkerId } from './lib/rules';
+import { checkEligibility, validateMarker, type Eligibility, type MarkerErrors, type MarkerFormValue, type ValidMarkerInput } from './lib/input';
+import { evaluateMarkers, type EvaluatedMarker } from './lib/evaluate';
+import { hasUrgentSymptom, overlappingSymptoms, OVERLAP_MESSAGE, URGENT_MESSAGE } from './lib/safety';
+import { SAMPLES, type Sample } from './lib/samples';
+import { clearAll, exportJson, loadEntries, newId, saveEntries, type SavedEntry } from './lib/storage';
 
-const DEFAULT_MARKERS: BiomarkerEntry[] = [
-  {
-    marker: 'ferritin',
-    label: 'Serum Ferritin',
-    value: 18,
-    unit: 'ug/L',
-    labRange: '15 - 150 ug/L',
-    description: 'Primary storage protein for iron. Values <30 ug/L often present with symptomatic fatigue despite being within standard lab limits.'
+type Markers = Record<MarkerId, MarkerFormValue>;
+
+const emptyMarkers = (): Markers => ({
+  ferritin: emptyMarkerForm('ferritin'),
+  hemoglobin: emptyMarkerForm('hemoglobin'),
+  tsh: emptyMarkerForm('tsh')
+});
+
+const MIN_AGE = getRule('ferritin').population.minAgeYears ?? 18;
+
+const NOT_COVERED_COPY: Record<NonNullable<Eligibility['reason']>, { title: string; body: string }> = {
+  missing_age: {
+    title: 'We need your age first',
+    body: 'The guideline cutoffs HerChart uses are for adults. Please add your age above so we can check they apply to you.'
   },
-  {
-    marker: 'hemoglobin',
-    label: 'Hemoglobin (Hb)',
-    value: 11.6,
-    unit: 'g/dL',
-    labRange: '11.5 - 15.5 g/dL',
-    description: 'Oxygen-carrying protein in red blood cells. WHO diagnostic cutoff for non-pregnant women is 12.0 g/dL.'
+  invalid_age: {
+    title: 'Please check your age',
+    body: 'Enter your age in whole years, for example 32.'
   },
-  {
-    marker: 'tsh',
-    label: 'Thyroid Stimulating Hormone (TSH)',
-    value: 3.2,
-    unit: 'mIU/L',
-    labRange: '0.4 - 4.0 mIU/L',
-    description: 'Master regulator of thyroid output. While standard upper limit is 4.0 mIU/L, many endocrinology guidelines debate 2.5 mIU/L.'
+  missing_pregnancy: {
+    title: 'One more question',
+    body: 'Please tell us whether you are, or could be, pregnant. Pregnancy changes which cutoffs apply.'
+  },
+  under_18: {
+    title: 'HerChart is not built for under-18s yet',
+    body: `The cutoffs in our rules are for adults aged ${MIN_AGE} and over. Teen ranges differ, so we will not show a comparison that might not fit you. A doctor or school nurse can walk you through your report.`
+  },
+  pregnant: {
+    title: 'Congratulations, and please talk to your care team',
+    body: 'Pregnancy changes blood test ranges, often by trimester, so HerChart’s cutoffs do not apply and we will not show a comparison. Your midwife, obstetrician or doctor is the right person to explain these results.'
   }
-];
+};
 
-export const App: React.FC = () => {
-  // 1. Unified State
-  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-  const [selectedSymptoms, setSelectedSymptoms] = useState<string[]>([
-    'fatigue',
-    'hair loss'
-  ]);
-  const [biomarkers, setBiomarkers] = useState<BiomarkerEntry[]>(DEFAULT_MARKERS);
-  const [evaluationResults, setEvaluationResults] = useState<EvaluationResult[]>([]);
-  const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
-  const [analysisStatus, setAnalysisStatus] = useState<string>('');
-  const [activePersonaId, setActivePersonaId] = useState<string | null>(null);
+function AppInner() {
+  const toast = useToast();
+  const [profile, setProfile] = useState<ProfileState>({ age: '', pregnant: '' });
+  const [markers, setMarkers] = useState<Markers>(emptyMarkers);
+  const [symptoms, setSymptoms] = useState<string[]>([]);
+  const [errors, setErrors] = useState<Partial<Record<MarkerId, MarkerErrors>>>({});
+  const [formError, setFormError] = useState<string | null>(null);
+  const [gate, setGate] = useState<Eligibility | null>(null);
+  const [results, setResults] = useState<EvaluatedMarker[] | null>(null);
+  const [resultSymptoms, setResultSymptoms] = useState<string[]>([]);
+  const [sampleId, setSampleId] = useState<string | null>(null);
+  const [view, setView] = useState<'main' | 'summary'>('main');
+  const [privacyOpen, setPrivacyOpen] = useState(false);
+  const [sourcesOpen, setSourcesOpen] = useState(false);
+  const [entries, setEntries] = useState<SavedEntry[]>(() => loadEntries());
+  const [savedFor, setSavedFor] = useState<EvaluatedMarker[] | null>(null);
+  const resultsHeading = useRef<HTMLHeadingElement>(null);
+  const pendingFocus = useRef(false);
 
-  // 2. Initial Evaluation on Load
   useEffect(() => {
-    runEvaluation(biomarkers, selectedSymptoms);
-  }, []);
+    if (pendingFocus.current && view === 'main') {
+      pendingFocus.current = false;
+      resultsHeading.current?.scrollIntoView({ block: 'start' });
+      resultsHeading.current?.focus({ preventScroll: true });
+    }
+  });
 
-  const runEvaluation = (currentMarkers: BiomarkerEntry[], currentSymptoms: string[]) => {
-    const extractedFormat: ExtractedLabData = {
-      ferritin: {
-        value: typeof currentMarkers.find(b => b.marker === 'ferritin')?.value === 'number'
-          ? (currentMarkers.find(b => b.marker === 'ferritin')?.value as number)
-          : null,
-        unit: currentMarkers.find(b => b.marker === 'ferritin')?.unit || 'ug/L',
-        labRange: currentMarkers.find(b => b.marker === 'ferritin')?.labRange || '15 - 150 ug/L'
-      },
-      hemoglobin: {
-        value: typeof currentMarkers.find(b => b.marker === 'hemoglobin')?.value === 'number'
-          ? (currentMarkers.find(b => b.marker === 'hemoglobin')?.value as number)
-          : null,
-        unit: currentMarkers.find(b => b.marker === 'hemoglobin')?.unit || 'g/dL',
-        labRange: currentMarkers.find(b => b.marker === 'hemoglobin')?.labRange || '11.5 - 15.5 g/dL'
-      },
-      tsh: {
-        value: typeof currentMarkers.find(b => b.marker === 'tsh')?.value === 'number'
-          ? (currentMarkers.find(b => b.marker === 'tsh')?.value as number)
-          : null,
-        unit: currentMarkers.find(b => b.marker === 'tsh')?.unit || 'mIU/L',
-        labRange: currentMarkers.find(b => b.marker === 'tsh')?.labRange || '0.4 - 4.0 mIU/L'
-      }
-    };
+  function showResults(inputs: ValidMarkerInput[], syms: string[], fromSample: string | null) {
+    setResults(evaluateMarkers(inputs, syms));
+    setResultSymptoms(syms);
+    setSampleId(fromSample);
+    setGate({ eligible: true, reason: null });
+    setView('main');
+    pendingFocus.current = true;
+  }
 
-    const results = evaluateLabsAndSymptoms(extractedFormat, currentSymptoms);
-    setEvaluationResults(results);
-  };
-
-  // Handlers
-  const handleFileSelect = (file: File) => {
-    setUploadedFile(file);
-  };
-
-  const handleFileRemove = () => {
-    setUploadedFile(null);
-    setActivePersonaId(null);
-    setEvaluationResults([]);
-  };
-
-  const handleSymptomToggle = (symptom: string) => {
-    setSelectedSymptoms(prev => {
-      const updated = prev.includes(symptom)
-        ? prev.filter(s => s !== symptom)
-        : [...prev, symptom];
-      
-      runEvaluation(biomarkers, updated);
-      return updated;
-    });
-  };
-
-  const handleMarkerValueChange = (markerKey: string, newValue: string) => {
-    setBiomarkers(prev => {
-      const updated: BiomarkerEntry[] = prev.map(b => {
-        if (b.marker === markerKey) {
-          if (newValue.trim() === '') {
-            return { ...b, value: '' as BiomarkerValue };
-          }
-          const parsed = parseFloat(newValue);
-          return { ...b, value: (isNaN(parsed) ? '' : parsed) as BiomarkerValue };
-        }
-        return b;
-      });
-      runEvaluation(updated, selectedSymptoms);
-      return updated;
-    });
-  };
-
-  // Trigger Gemini API extraction & rule evaluation
-  const handleAnalyzeReport = async () => {
-    if (!uploadedFile) {
-      alert('Please upload a lab report (PDF or Image) first.');
+  function submit() {
+    setFormError(null);
+    const eligibility = checkEligibility(profile.age, profile.pregnant, MIN_AGE);
+    const nextErrors: Partial<Record<MarkerId, MarkerErrors>> = {};
+    const inputs: ValidMarkerInput[] = [];
+    for (const m of MARKER_IDS) {
+      const v = validateMarker(m, markers[m]);
+      if (v.status === 'invalid') nextErrors[m] = v.errors;
+      if (v.status === 'ok') inputs.push(v.input);
+    }
+    setErrors(nextErrors);
+    if (!eligibility.eligible) {
+      setGate(eligibility);
+      setResults(null);
+      pendingFocus.current = true;
       return;
     }
-
-    setIsAnalyzing(true);
-    setAnalysisStatus('Connecting to Google Gemini API for multimodal extraction...');
-
-    try {
-      // Step 1: Multimodal Extraction via Google Gemini
-      const extracted = await extractLabValues(uploadedFile);
-
-      setAnalysisStatus('Correlating extracted biomarker cutoffs with symptoms...');
-
-      // Step 2: Update local biomarker inputs with extracted data
-      const updatedBiomarkers = biomarkers.map(b => {
-        if (b.marker === 'ferritin' && extracted.ferritin.value !== null) {
-          return {
-            ...b,
-            value: extracted.ferritin.value,
-            unit: extracted.ferritin.unit || b.unit,
-            labRange: extracted.ferritin.labRange || b.labRange
-          };
-        }
-        if (b.marker === 'hemoglobin' && extracted.hemoglobin.value !== null) {
-          return {
-            ...b,
-            value: extracted.hemoglobin.value,
-            unit: extracted.hemoglobin.unit || b.unit,
-            labRange: extracted.hemoglobin.labRange || b.labRange
-          };
-        }
-        if (b.marker === 'tsh' && extracted.tsh.value !== null) {
-          return {
-            ...b,
-            value: extracted.tsh.value,
-            unit: extracted.tsh.unit || b.unit,
-            labRange: extracted.tsh.labRange || b.labRange
-          };
-        }
-        return b;
-      });
-
-      setBiomarkers(updatedBiomarkers);
-
-      // Step 3: Run core evaluation against rules.json
-      const results = evaluateLabsAndSymptoms(extracted, selectedSymptoms);
-      setEvaluationResults(results);
-
-      // Step 4: Scroll down to results
-      setTimeout(() => {
-        const resultsEl = document.getElementById('results-section');
-        if (resultsEl) {
-          resultsEl.scrollIntoView({ behavior: 'smooth' });
-        }
-      }, 100);
-    } catch (err: unknown) {
-      console.error('Error during clinical pattern synthesis:', err);
-      const errorMessage = err instanceof Error ? err.message : 'Failed to analyze lab report. Please verify configuration.';
-      alert(errorMessage);
-    } finally {
-      setIsAnalyzing(false);
-      setAnalysisStatus('');
+    if (Object.keys(nextErrors).length > 0) {
+      setFormError('Please fix the highlighted fields.');
+      return;
     }
-  };
+    if (inputs.length === 0) {
+      setFormError('Enter at least one result to compare.');
+      return;
+    }
+    showResults(inputs, symptoms, null);
+  }
 
-  // 1-Click Demo Persona Handler: Instantly hydrates state and evaluates rules with 0ms latency
-  const handleSelectDemoPersona = (persona: DemoPersona) => {
-    setActivePersonaId(persona.id);
+  function loadSample(s: Sample) {
+    const next = emptyMarkers();
+    const inputs: ValidMarkerInput[] = [];
+    for (const m of MARKER_IDS) {
+      const sm = s.markers[m];
+      if (!sm) continue;
+      next[m] = { ...sm, collectionDate: '' };
+      const v = validateMarker(m, next[m]);
+      if (v.status === 'ok') inputs.push(v.input);
+    }
+    setProfile({ age: '30', pregnant: 'no' });
+    setMarkers(next);
+    setSymptoms(s.symptoms);
+    setErrors({});
+    setFormError(null);
+    showResults(inputs, s.symptoms, s.id);
+  }
 
-    // Mock PDF file representing the persona's lab panel for the file uploader UI
-    const mockFile = new File([persona.mockOcrText], persona.fileName, {
-      type: 'application/pdf'
-    });
-    setUploadedFile(mockFile);
+  function clearForm() {
+    setProfile({ age: '', pregnant: '' });
+    setMarkers(emptyMarkers());
+    setSymptoms([]);
+    setErrors({});
+    setFormError(null);
+    setGate(null);
+    setResults(null);
+    setSampleId(null);
+  }
 
-    // Hydrate symptoms
-    setSelectedSymptoms(persona.symptoms);
+  function updateEntries(next: SavedEntry[]) {
+    setEntries(next);
+    if (!saveEntries(next)) toast('Could not save in this browser (storage may be blocked).');
+  }
 
-    // Hydrate biomarkers
-    const updatedBiomarkers: BiomarkerEntry[] = biomarkers.map(b => {
-      if (b.marker === 'ferritin') {
-        return {
-          ...b,
-          value: persona.labData.ferritin ? persona.labData.ferritin.value : ('' as BiomarkerValue),
-          unit: persona.labData.ferritin ? persona.labData.ferritin.unit : b.unit,
-          labRange: persona.labData.ferritin?.labRange || b.labRange
-        };
-      }
-      if (b.marker === 'hemoglobin') {
-        return {
-          ...b,
-          value: persona.labData.hemoglobin ? persona.labData.hemoglobin.value : ('' as BiomarkerValue),
-          unit: persona.labData.hemoglobin ? persona.labData.hemoglobin.unit : b.unit,
-          labRange: persona.labData.hemoglobin?.labRange || b.labRange
-        };
-      }
-      if (b.marker === 'tsh') {
-        return {
-          ...b,
-          value: persona.labData.tsh ? persona.labData.tsh.value : ('' as BiomarkerValue),
-          unit: persona.labData.tsh ? persona.labData.tsh.unit : b.unit,
-          labRange: persona.labData.tsh?.labRange || b.labRange
-        };
-      }
-      return b;
-    });
-    setBiomarkers(updatedBiomarkers);
+  function saveHistory() {
+    if (!results) return;
+    const now = new Date().toISOString();
+    const added: SavedEntry[] = results.map(e => ({
+      id: newId(),
+      savedAt: now,
+      collectionDate: e.input.collectionDate,
+      marker: e.marker,
+      value: e.input.value,
+      unit: e.input.unit,
+      labLow: e.input.labLow,
+      labHigh: e.input.labHigh,
+      symptoms: resultSymptoms
+    }));
+    updateEntries([...entries, ...added]);
+    setSavedFor(results);
+    toast('Saved on this device');
+  }
 
-    // Synchronously evaluate labs and symptoms for instant hackathon demonstration
-    const extractedFormat: ExtractedLabData = {
-      ferritin: {
-        value: persona.labData.ferritin ? persona.labData.ferritin.value : null,
-        unit: persona.labData.ferritin?.unit || 'ng/mL',
-        labRange: persona.labData.ferritin?.labRange || '15 - 150 ng/mL'
-      },
-      hemoglobin: {
-        value: persona.labData.hemoglobin ? persona.labData.hemoglobin.value : null,
-        unit: persona.labData.hemoglobin?.unit || 'g/dL',
-        labRange: persona.labData.hemoglobin?.labRange || '11.5 - 15.5 g/dL'
-      },
-      tsh: {
-        value: persona.labData.tsh ? persona.labData.tsh.value : null,
-        unit: persona.labData.tsh?.unit || 'mIU/L',
-        labRange: persona.labData.tsh?.labRange || '0.4 - 4.0 mIU/L'
-      }
-    };
+  function deleteEverything() {
+    clearAll();
+    setEntries([]);
+    clearForm();
+    setPrivacyOpen(false);
+    toast('Everything deleted from this device');
+  }
 
-    const results = evaluateLabsAndSymptoms(extractedFormat, persona.symptoms);
-    setEvaluationResults(results);
-
-    // Smooth scroll down to results section for immediate visual feedback
-    setTimeout(() => {
-      const resultsEl = document.getElementById('results-section');
-      if (resultsEl) {
-        resultsEl.scrollIntoView({ behavior: 'smooth' });
-      }
-    }, 100);
-  };
-
-  const handleResetDemo = () => {
-    setActivePersonaId(null);
-    setUploadedFile(null);
-    setSelectedSymptoms([]);
-    const cleared: BiomarkerEntry[] = biomarkers.map(b => ({ ...b, value: '' as BiomarkerValue }));
-    setBiomarkers(cleared);
-    setEvaluationResults([]);
-  };
+  const urgent = hasUrgentSymptom(symptoms) || (results !== null && hasUrgentSymptom(resultSymptoms));
+  const overlap = results ? overlappingSymptoms(resultSymptoms) : [];
+  const flaggedCount = results?.filter(r => r.result.matchedTier).length ?? 0;
+  const activeSample = SAMPLES.find(s => s.id === sampleId);
 
   return (
-    <div className="min-h-screen bg-slate-50/60 text-slate-800 antialiased font-sans">
-      {/* Sticky Professional Header */}
-      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-xs">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-rose-600 to-rose-400 text-white flex items-center justify-center font-black text-lg shadow-sm">
-              H
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-extrabold text-slate-900 tracking-tight text-base sm:text-lg">
-                  HerChart
-                </span>
-                <span className="hidden sm:inline-block text-slate-300 font-light">|</span>
-                <span className="text-xs sm:text-sm font-semibold text-rose-600">
-                  Clinical Pattern Synthesizer
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-500 hidden sm:block">
-                Closing reference-range gaps for adult, non-pregnant women
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <div className="hidden md:flex items-center gap-1.5 text-xs text-slate-500 mr-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-              <span>Gemini 3.8 Flash</span>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => handleSelectDemoPersona(PRIMARY_DEMO_PERSONA)}
-              className="px-3 py-1.5 text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100/80 border border-rose-200 rounded-lg transition-colors flex items-center gap-1.5"
-            >
-              <span>⚡</span>
-              <span>Demo: Sarah (Iron)</span>
+    <div className="flex min-h-screen flex-col">
+      <a href="#main" className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-2 focus:z-50 focus:rounded-lg focus:bg-surface focus:px-3 focus:py-2">Skip to content</a>
+      <header className="no-print sticky top-0 z-30 border-b border-line bg-bg/95 backdrop-blur">
+        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-2 px-4">
+          <a href="#top" className="flex items-center gap-2 font-display text-lg font-semibold text-ink" onClick={() => setView('main')}>
+            <img src="/favicon.svg" alt="" width={28} height={28} className="h-7 w-7" />
+            HerChart
+          </a>
+          <nav aria-label="Site" className="flex items-center gap-1">
+            <button type="button" className="btn-ghost px-3" onClick={() => setPrivacyOpen(true)}>
+              <Icon name="shield" className="h-4 w-4" /> Privacy
             </button>
-            <button
-              type="button"
-              onClick={handleResetDemo}
-              className="px-2.5 py-1.5 text-xs font-medium text-slate-400 hover:text-slate-600 transition-colors"
-              title="Clear all inputs"
-            >
-              Reset
+            <button type="button" className="btn-ghost px-3" onClick={() => setSourcesOpen(true)}>
+              <Icon name="book" className="h-4 w-4" /> <span className="hidden sm:inline">Sources &amp; rules</span><span className="sm:hidden">Sources</span>
             </button>
-          </div>
+          </nav>
         </div>
       </header>
 
-      {/* Main Single-Scroll Dashboard */}
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-10">
-        {/* Intro Hero Banner */}
-        <div className="bg-gradient-to-r from-slate-900 via-slate-800 to-rose-950 text-white rounded-3xl p-6 sm:p-10 shadow-lg relative overflow-hidden">
-          <div className="relative z-10 max-w-2xl">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30 mb-4">
-              <span>●</span> Gemini Intelligence Layer Active
-            </span>
-            <h1 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight leading-tight mb-3">
-              When "Normal" Labs Still Leave You Feeling Exhausted.
-            </h1>
-            <p className="text-sm sm:text-base text-slate-300 leading-relaxed mb-6">
-              Standard lab reference ranges are broad population statistics that frequently miss subclinical deficiencies. HerChart uses Google Gemini to extract your biomarkers and correlates them with WHO guidelines, academic evidence, and your logged symptoms to generate an actionable clinical summary sheet.
-            </p>
-
-            {/* Quick Step Indicators */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-4 border-t border-white/10 text-xs">
-              <div className="flex items-center gap-2.5">
-                <span className="w-6 h-6 rounded-full bg-rose-500/30 text-rose-300 font-bold flex items-center justify-center shrink-0 border border-rose-400/40">
-                  1
-                </span>
-                <span>Upload Lab Panel (PDF/Image)</span>
-              </div>
-              <div className="flex items-center gap-2.5">
-                <span className="w-6 h-6 rounded-full bg-rose-500/30 text-rose-300 font-bold flex items-center justify-center shrink-0 border border-rose-400/40">
-                  2
-                </span>
-                <span>Log Clinical Symptoms</span>
-              </div>
-              <div className="flex items-center gap-2.5">
-                <span className="w-6 h-6 rounded-full bg-rose-500/30 text-rose-300 font-bold flex items-center justify-center shrink-0 border border-rose-400/40">
-                  3
-                </span>
-                <span>Analyze & Synthesize Insights</span>
-              </div>
-            </div>
+      {urgent && (
+        <div role="alert" className="no-print border-b border-tierA-fg/40 bg-tierA-bg">
+          <div className="mx-auto flex max-w-6xl items-start gap-3 px-4 py-3 text-tierA-fg">
+            <Icon name="alert" className="mt-0.5 h-5 w-5 shrink-0" />
+            <p className="font-semibold">{URGENT_MESSAGE}</p>
           </div>
         </div>
+      )}
 
-        {/* Hackathon 1-Click Demo Persona Switcher */}
-        <DemoPersonaSelector
-          onSelectPersona={handleSelectDemoPersona}
-          onReset={handleResetDemo}
-          activePersonaId={activePersonaId}
-        />
-
-        {/* STEP 1: Upload Lab Report */}
-        <section className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-xs space-y-6">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <span className="w-8 h-8 rounded-xl bg-slate-900 text-white font-extrabold text-sm flex items-center justify-center">
-                1
-              </span>
-              <div>
-                <h2 className="text-lg font-bold text-slate-900">
-                  Step 1: Upload Report & Review Extracted Values
-                </h2>
-                <p className="text-xs text-slate-500">
-                  Upload your laboratory results (PDF or Image). Gemini extracts ferritin, hemoglobin, and TSH.
-                </p>
+      <main id="main" className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
+        {view === 'summary' && results ? (
+          <DoctorSummary results={results} symptoms={resultSymptoms} onBack={() => setView('main')} />
+        ) : (
+          <div className="space-y-12">
+            <section id="top" aria-labelledby="hero-title" className="pt-2">
+              <p className="text-sm font-semibold uppercase tracking-wide text-plum">For adult women who are not pregnant</p>
+              <h1 id="hero-title" className="mt-2 max-w-3xl text-4xl font-semibold leading-tight sm:text-5xl">
+                Your lab report says in range. Is that the full story?
+              </h1>
+              <p className="mt-4 max-w-2xl text-lg text-muted">
+                HerChart puts your ferritin, hemoglobin or TSH next to published guideline cutoffs, because inside your lab’s range
+                does not always mean nothing to discuss.
+              </p>
+              <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+                <a href="#samples" className="btn-primary px-6">Try a sample</a>
+                <a href="#entry" className="btn-secondary px-6" onClick={() => setTimeout(() => document.getElementById('age')?.focus({ preventScroll: true }), 300)}>Enter my results</a>
               </div>
-            </div>
+              <ol className="mt-10 grid gap-4 sm:grid-cols-3">
+                {[
+                  ['Enter or upload', 'Type in your result and your lab’s printed range, or upload a report and check what we read.'],
+                  ['See guideline vs lab range', 'A fixed rules file compares your value with published cutoffs, side by side with your lab’s range.'],
+                  ['Take questions to your doctor', 'Get a one-page summary with sourced questions to discuss. We never diagnose.']
+                ].map(([t, d], i) => (
+                  <li key={t} className="card p-5">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-plum-soft font-semibold text-plum">{i + 1}</span>
+                    <h2 className="mt-3 text-lg font-semibold">{t}</h2>
+                    <p className="mt-1 text-sm text-muted">{d}</p>
+                  </li>
+                ))}
+              </ol>
+            </section>
 
-            {uploadedFile && (
-              <button
-                type="button"
-                onClick={handleAnalyzeReport}
-                disabled={isAnalyzing}
-                className="hidden sm:inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-rose-600 to-rose-700 hover:from-rose-500 hover:to-rose-600 shadow-md hover:shadow-lg transition-all disabled:opacity-50"
-              >
-                {isAnalyzing ? (
-                  <>
-                    <svg className="w-4 h-4 animate-spin text-white" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
-                    </svg>
-                    <span>Analyzing with Gemini...</span>
-                  </>
+            <section id="samples" aria-labelledby="samples-title" className="scroll-mt-20">
+              <h2 id="samples-title" className="text-2xl font-semibold">Try a sample</h2>
+              <p className="mt-1 text-sm text-muted">One click fills the form and shows a comparison. Nothing is sent anywhere.</p>
+              <div className="mt-4 grid gap-4 md:grid-cols-3">
+                {SAMPLES.map(s => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => loadSample(s)}
+                    className={`card flex min-h-[44px] flex-col items-start p-5 text-left transition-colors hover:border-plum ${sampleId === s.id ? 'border-plum ring-2 ring-plum/30' : ''}`}
+                  >
+                    <span className="rounded-full bg-teal-soft px-2.5 py-0.5 text-xs font-semibold text-teal">Sample data, illustrative</span>
+                    <span className="mt-3 font-display text-lg font-semibold">{s.title}</span>
+                    <span className="mt-1 text-sm text-muted">{s.blurb}</span>
+                    <span className="mt-3 text-sm font-semibold text-plum">Show this comparison →</span>
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            <section id="entry" aria-labelledby="entry-title" className="scroll-mt-20 space-y-6">
+              <h2 id="entry-title" className="text-2xl font-semibold">Enter my results</h2>
+              <UploadPanel
+                onUse={rows => {
+                  setMarkers(prev => {
+                    const next = { ...prev };
+                    for (const r of rows) next[r.marker] = r.form;
+                    return next;
+                  });
+                  setSampleId(null);
+                  toast('Confirmed values added to the form');
+                  setTimeout(() => document.getElementById('age')?.focus(), 50);
+                }}
+              />
+              <EntryForm
+                profile={profile}
+                onProfile={p => setProfile(p)}
+                profileError={gate && !gate.eligible && ['missing_age', 'invalid_age', 'missing_pregnancy'].includes(gate.reason ?? '') ? NOT_COVERED_COPY[gate.reason!].body : null}
+                markers={markers}
+                onMarker={(m, v) => setMarkers(prev => ({ ...prev, [m]: v }))}
+                errors={errors}
+                symptoms={symptoms}
+                onToggleSymptom={id => setSymptoms(prev => (prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]))}
+                formError={formError}
+                onSubmit={submit}
+                onClear={clearForm}
+              />
+            </section>
+
+            <section id="results" aria-labelledby="results-title" className="scroll-mt-20 space-y-6">
+              <h2 id="results-title" ref={resultsHeading} tabIndex={-1} className="text-2xl font-semibold outline-none">Your comparison</h2>
+              <div aria-live="polite" className="space-y-6">
+                {gate && !gate.eligible && gate.reason ? (
+                  <div className="card border-plum/30 p-6">
+                    <h3 className="text-xl font-semibold">{NOT_COVERED_COPY[gate.reason].title}</h3>
+                    <p className="mt-2 max-w-2xl text-muted">{NOT_COVERED_COPY[gate.reason].body}</p>
+                    <p className="mt-3 text-sm text-muted">No result has been calculated.</p>
+                  </div>
+                ) : !results ? (
+                  <div className="card flex flex-col items-start gap-3 border-dashed p-6">
+                    <p className="font-medium">No comparison yet.</p>
+                    <p className="text-sm text-muted">Try a sample above, or enter at least one result and press “See my comparison”.</p>
+                  </div>
                 ) : (
                   <>
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                    </svg>
-                    <span>Analyze Report</span>
+                    {activeSample && <p className="rounded-xl bg-teal-soft px-3 py-2 text-sm text-teal"><strong>Sample data, illustrative:</strong> {activeSample.title}. Not a real person.</p>}
+                    <div className="card p-5">
+                      <p className="font-medium">
+                        {results.length} test{results.length === 1 ? '' : 's'} compared · {flaggedCount} with a guideline flag
+                      </p>
+                      {resultSymptoms.length > 0 && (
+                        <p className="mt-1 text-sm text-muted">Symptoms ticked: {resultSymptoms.map(symptomLabel).join(', ')}</p>
+                      )}
+                      {overlap.length > 0 && (
+                        <p className="mt-3 rounded-xl border border-teal/40 bg-teal-soft px-3 py-2 text-sm text-ink">
+                          <strong>{overlap.map(symptomLabel).join(', ')}:</strong> {OVERLAP_MESSAGE}
+                        </p>
+                      )}
+                    </div>
+                    <div className={`grid gap-6 ${results.length > 1 ? 'lg:grid-cols-2' : 'max-w-3xl'}`}>
+                      {results.map(e => <ResultCard key={e.marker} e={e} />)}
+                    </div>
+                    <Explainer results={results} />
+                    <div className="no-print flex flex-col gap-3 sm:flex-row">
+                      <button type="button" className="btn-primary" onClick={() => { setView('summary'); window.scrollTo({ top: 0 }); }}>
+                        <Icon name="printer" className="h-4 w-4" /> Doctor visit summary
+                      </button>
+                      <button type="button" className="btn-secondary" onClick={saveHistory} disabled={savedFor === results}>
+                        {savedFor === results ? 'Saved on this device' : 'Save to my history on this device'}
+                      </button>
+                    </div>
                   </>
                 )}
-              </button>
-            )}
-          </div>
-
-          <FileUpload
-            selectedFile={uploadedFile}
-            onFileSelect={handleFileSelect}
-            onFileRemove={handleFileRemove}
-          />
-
-          {/* Prominent Mobile/Full-Width Analyze Action Button */}
-          {uploadedFile && (
-            <div className="p-4 rounded-2xl bg-gradient-to-r from-rose-50 to-pink-50 border border-rose-200 flex flex-col sm:flex-row items-center justify-between gap-3">
-              <div className="flex items-center gap-2.5 text-xs text-slate-700">
-                <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse"></span>
-                <span>
-                  <strong>Report Attached:</strong> Ready for Gemini OCR & clinical guideline evaluation.
-                </span>
               </div>
-              <button
-                type="button"
-                onClick={handleAnalyzeReport}
-                disabled={isAnalyzing}
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold text-white bg-rose-600 hover:bg-rose-700 shadow-sm transition-all disabled:opacity-50"
-              >
-                {isAnalyzing ? (
-                  <>
-                    <svg className="w-4 h-4 animate-spin text-white" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
-                    </svg>
-                    <span>Synthesizing...</span>
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <span>Run Clinical Analysis</span>
-                  </>
-                )}
-              </button>
-            </div>
-          )}
+            </section>
 
-          {/* Interactive Biomarker Values Container */}
-          <div className="pt-4 border-t border-slate-100">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                Extracted Biomarker Panel ({biomarkers.length})
-              </span>
-              <span className="text-xs text-slate-400">
-                You can manually fine-tune or verify values
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {biomarkers.map(item => (
-                <div
-                  key={item.marker}
-                  className="p-4 rounded-2xl border border-slate-200 bg-slate-50/50 hover:bg-white hover:border-rose-200 hover:shadow-xs transition-all space-y-2"
-                >
-                  <div className="flex items-center justify-between">
-                    <label
-                      htmlFor={`marker-${item.marker}`}
-                      className="text-xs font-bold text-slate-800 capitalize"
-                    >
-                      {item.label}
-                    </label>
-                    <span className="text-[11px] font-mono text-slate-500 bg-slate-200/70 px-2 py-0.5 rounded">
-                      {item.unit}
-                    </span>
-                  </div>
-
-                  <div className="relative">
-                    <input
-                      id={`marker-${item.marker}`}
-                      type="number"
-                      step="any"
-                      placeholder="e.g. 18"
-                      value={item.value}
-                      onChange={e => handleMarkerValueChange(item.marker, e.target.value)}
-                      className="w-full px-3 py-2 text-base font-semibold text-slate-900 bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-rose-500/30 focus:border-rose-500 transition-all font-mono"
-                    />
-                  </div>
-
-                  <div className="text-[11px] text-slate-500">
-                    <span className="font-semibold text-slate-600">Lab Range: </span>
-                    <span className="font-mono">{item.labRange}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <section id="trends" aria-label="My trends" className="scroll-mt-20">
+              <Trends entries={entries} onChange={updateEntries} />
+            </section>
           </div>
-        </section>
-
-        {/* STEP 2: Log Symptoms */}
-        <section className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-xs space-y-6">
-          <div className="flex items-center gap-3">
-            <span className="w-8 h-8 rounded-xl bg-slate-900 text-white font-extrabold text-sm flex items-center justify-center">
-              2
-            </span>
-            <div>
-              <h2 className="text-lg font-bold text-slate-900">
-                Step 2: Log Symptoms
-              </h2>
-              <p className="text-xs text-slate-500">
-                Check any symptoms you have experienced over the past 3-6 months.
-              </p>
-            </div>
-          </div>
-
-          <SymptomChecklist
-            selectedSymptoms={selectedSymptoms}
-            onSymptomToggle={handleSymptomToggle}
-          />
-        </section>
-
-        {/* STEP 3: Review Clinical Insights */}
-        <section id="results-section" className="space-y-4">
-          <div className="flex items-center gap-3 px-2">
-            <span className="w-8 h-8 rounded-xl bg-slate-900 text-white font-extrabold text-sm flex items-center justify-center">
-              3
-            </span>
-            <div>
-              <h2 className="text-lg font-bold text-slate-900">
-                Step 3: Review Clinical Insights & Action Plan
-              </h2>
-              <p className="text-xs text-slate-500">
-                Synthesized evaluation combining guideline cutoffs, patient symptoms, and discussion questions.
-              </p>
-            </div>
-          </div>
-
-          <ResultsPanel
-            results={evaluationResults}
-            uploadedFile={uploadedFile}
-            selectedSymptoms={selectedSymptoms}
-            isLoading={isAnalyzing}
-          />
-        </section>
+        )}
       </main>
 
-      {/* Footer */}
-      <footer className="mt-16 border-t border-slate-200 bg-white py-8 text-center text-xs text-slate-500 print:hidden">
-        <div className="max-w-6xl mx-auto px-4 space-y-2">
-          <p className="font-semibold text-slate-700">
-            HerChart | Clinical Pattern Synthesizer for Women's Health
-          </p>
-          <p className="max-w-xl mx-auto text-[11px] text-slate-400">
-            This tool is designed for educational health advocacy and clinical discussion facilitation. It does not provide medical diagnoses or replace consultations with licensed healthcare practitioners.
-          </p>
+      <footer className="no-print border-t border-line bg-surface">
+        <div className="mx-auto max-w-6xl px-4 py-6 text-sm text-muted">
+          <p className="font-semibold text-ink">{DISCLAIMER}</p>
+          <p className="mt-1">Always talk to a doctor about your results. In an emergency, contact local emergency services.</p>
         </div>
       </footer>
+
+      <PrivacyModal
+        open={privacyOpen}
+        onClose={() => setPrivacyOpen(false)}
+        savedCount={entries.length}
+        onExport={() => exportJson(entries)}
+        onDeleteAll={deleteEverything}
+      />
+      <SourcesModal open={sourcesOpen} onClose={() => setSourcesOpen(false)} />
     </div>
   );
-};
+}
 
-export default App;
+export default function App() {
+  return (
+    <ToastProvider>
+      <AppInner />
+    </ToastProvider>
+  );
+}

@@ -57,7 +57,7 @@
         "Should this test be repeated, and what else could explain my symptoms?"
       ],
       "caveats": [
-        { "text": "Ferritin is an acute-phase marker and can look normal during infection or inflammation; in inflammation, thresholds such as <100 are used instead.", "sourceId": "utsw-low-iron-slides" },
+        { "text": "Ferritin is an acute-phase marker and can look reassuring during infection or inflammation; in inflammation, thresholds such as <100 are used instead.", "sourceId": "utsw-low-iron-slides" },
         { "text": "The cutoff is debated: 15 gives high specificity but lower sensitivity; 30 gives higher sensitivity but lower specificity.", "sourceId": "utsw-low-iron-slides" },
         { "text": "This is a single test and only a snapshot. Tell your doctor about any medications or supplements.", "sourceId": null },
         { "text": "Lab reference ranges differ by lab and may differ from guideline cutoffs; both are shown side by side.", "sourceId": null }
@@ -114,12 +114,12 @@
       },
       "doctorQuestions": [
         "My lab's printed lower limit differs from the WHO cutoff of 12 g/dL. How should I interpret my result?",
-        "Normal hemoglobin does not rule out low iron stores. Should my ferritin or other iron studies be checked?",
+        "Hemoglobin inside the range does not rule out low iron stores. Should my ferritin or other iron studies be checked?",
         "Should this test be repeated, and what could explain my symptoms?"
       ],
       "caveats": [
         { "text": "Pregnancy, altitude, smoking and age change hemoglobin cutoffs; pregnancy is excluded by design.", "sourceId": "who-hb-2024" },
-        { "text": "Normal hemoglobin does not rule out iron deficiency; anemia is the last stage.", "sourceId": "utsw-low-iron-slides" },
+        { "text": "Hemoglobin inside the range does not rule out iron deficiency; anemia is the last stage.", "sourceId": "utsw-low-iron-slides" },
         { "text": "Cutoffs are debated: Braat et al. proposed data-driven alternative thresholds, but WHO retained 12 g/dL.", "sourceId": "braat-2024" },
         { "text": "This is a single test and only a snapshot. Tell your doctor about any medications or supplements.", "sourceId": null },
         { "text": "A lab's printed lower limit for women can differ from the WHO cutoff (many use about 12 g/dL); both are shown side by side.", "sourceId": null }

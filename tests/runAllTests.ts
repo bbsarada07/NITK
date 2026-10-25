@@ -2,6 +2,7 @@ import * as assert from 'assert';
 import { loadRules, checkRuleGate, GateBlockedError, RuleValidationError, validateRuleRecord } from '../src/rules/loader';
 import { evaluateTier } from '../src/evaluator/tierEvaluator';
 import { RuleRecord } from '../src/types/rules';
+import { runExtendedTests } from './extendedTests';
 
 let totalTests = 0;
 let passedTests = 0;
@@ -248,6 +249,22 @@ runTest('A fully verified rule passes the prod gate without error', () => {
   assert.strictEqual(result.isFlagged, true);
   assert.strictEqual(result.matchedTier?.id, 'A');
 });
+
+// 8+. Boundaries, conversions, gates, rendering, extraction schema and explainer guardrails
+async function runTestAsync(name: string, fn: () => Promise<void>) {
+  totalTests++;
+  try {
+    await fn();
+    passedTests++;
+    console.log(`  [PASS] ${name}`);
+  } catch (err: unknown) {
+    failedTests++;
+    console.error(`  [FAIL] ${name}`);
+    console.error(`         ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+assert.ok(ferritinRule && hbRule && tshRule);
+await runExtendedTests({ ferritin: ferritinRule, hemoglobin: hbRule, tsh: tshRule }, runTest, runTestAsync);
 
 // Print summary
 console.log('\n====================================================');

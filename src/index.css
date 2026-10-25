@@ -3,20 +3,35 @@
 @tailwind utilities;
 
 @layer base {
-  html {
-    font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  }
+  html { scroll-behavior: smooth; }
+  h1, h2, h3 { font-family: Fraunces, Georgia, Cambria, serif; }
+  :focus-visible { outline: 3px solid #6D2E6B; outline-offset: 2px; border-radius: 6px; }
+  dialog::backdrop { background: rgba(31, 26, 43, 0.45); }
 }
 
+@layer components {
+  .card { @apply bg-surface rounded-card border border-line shadow-soft; }
+  .btn { @apply inline-flex items-center justify-center gap-2 min-h-[44px] px-4 rounded-xl text-sm font-semibold transition-colors disabled:opacity-60 disabled:cursor-not-allowed; }
+  .btn-primary { @apply btn bg-plum text-white hover:bg-plum-hover; }
+  .btn-secondary { @apply btn bg-surface text-plum border border-plum/40 hover:bg-plum-soft; }
+  .btn-ghost { @apply btn text-ink hover:bg-plum-soft; }
+  .field { @apply w-full min-h-[44px] px-3 rounded-xl border border-line bg-surface text-ink placeholder:text-muted/80; }
+  .label { @apply block text-sm font-medium text-ink mb-1; }
+  .help { @apply text-xs text-muted mt-1; }
+  .err { @apply text-sm text-tierA-fg mt-1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
+.print-only { display: none; }
 @media print {
-  body {
-    background-color: white !important;
-    color: black !important;
-  }
-  header, footer, button, .print\:hidden {
-    display: none !important;
-  }
-  .shadow-sm, .shadow-md, .shadow-lg {
-    box-shadow: none !important;
-  }
+  @page { margin: 14mm; }
+  body { background: #fff !important; }
+  .no-print { display: none !important; }
+  .print-only { display: block !important; }
+  .print-area { box-shadow: none !important; border: none !important; padding: 0 !important; }
+  a { color: inherit; text-decoration: none; }
 }

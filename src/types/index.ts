@@ -1,4 +1,3 @@
-export * from './types';
 export type {
   Population,
   UnitConversion,

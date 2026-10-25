@@ -7,7 +7,7 @@ import {
   EvaluatorMode,
   Source
 } from '../types/rules';
-import { checkRuleGate, GateBlockedError } from '../rules/loader';
+import { checkRuleGate, GateBlockedError } from '../rules/validate';
 
 /**
  * Normalizes input value to the rule's canonical unit.
@@ -107,15 +107,60 @@ export function checkDemographics(rule: RuleRecord, input: EvaluateMarkerInput):
   return warnings.length > 0 ? warnings.join('; ') : undefined;
 }
 
+/** Human-readable marker names; rule ids stay internal. */
+export const MARKER_DISPLAY_NAMES: Record<string, string> = {
+  ferritin: 'Ferritin',
+  hemoglobin: 'Hemoglobin',
+  tsh: 'TSH'
+};
+
+export function markerDisplayName(marker: string): string {
+  return MARKER_DISPLAY_NAMES[marker.toLowerCase()] ?? marker;
+}
+
 /**
- * Formats template strings by replacing {token} placeholders
+ * Formats template strings by replacing {token} placeholders.
+ * A null token is removed together with its surrounding " ({token})" so that
+ * unknown values (e.g. a source with no recorded year) are omitted, never printed.
  */
-function interpolateTemplate(template: string, vars: Record<string, string | number>): string {
+export function interpolateTemplate(template: string, vars: Record<string, string | number | null>): string {
   let result = template;
   for (const [key, val] of Object.entries(vars)) {
-    result = result.split(`{${key}}`).join(String(val));
+    if (val === null || val === '') {
+      result = result.split(` ({${key}})`).join('');
+      result = result.split(`({${key}})`).join('');
+      result = result.split(`{${key}}`).join('');
+    } else {
+      result = result.split(`{${key}}`).join(String(val));
+    }
   }
-  return result;
+  return result.replace(/\s{2,}/g, ' ').trim();
+}
+
+/**
+ * Finds which range of a tier matched and whether it lies below, above or within the
+ * tier's cutoffs. Used for direction-aware wording on tiers with two ranges (TSH tier A).
+ */
+export function describeMatchedRange(
+  normalizedVal: number,
+  tier: TierCutoff,
+  canonicalUnit: string
+): { range: RangeDef | null; direction: 'below' | 'above' | 'within' | null; label: string } {
+  const range = tier.ranges.find(r => isValueInRange(normalizedVal, r)) ?? null;
+  if (!range) return { range: null, direction: null, label: tier.label };
+  const direction = range.min === null ? 'below' : range.max === null ? 'above' : 'within';
+  if (tier.ranges.length < 2) return { range, direction, label: tier.label };
+
+  const base = tier.label.split(' (')[0].trim();
+  let detail = '';
+  if (direction === 'below' && range.max !== null) {
+    detail = `below ${range.maxInclusive ? 'or at ' : ''}${range.max} ${canonicalUnit} (lower end)`;
+  } else if (direction === 'above' && range.min !== null) {
+    detail = `${range.minInclusive ? 'at or above' : 'above'} ${range.min} ${canonicalUnit} (upper end)`;
+  } else if (range.min !== null && range.max !== null) {
+    detail = `${range.min} to <${range.max} ${canonicalUnit}`;
+  }
+  return { range, direction, label: detail ? `${base}: ${detail}` : tier.label };
 }
 
 /**
@@ -197,43 +242,42 @@ export function evaluateTier(
   let flagType: 'pattern' | 'valueOnly' | 'none' = 'none';
   let flagMessage = '';
 
-  const labRangeStr = input.labRange ? input.labRange : 'Not provided';
+  const displayName = markerDisplayName(rule.marker);
+  const labRangeStr = input.labRange && input.labRange.trim() ? input.labRange.trim() : 'not provided';
   const primaryCaveat = rule.caveats.length > 0 ? rule.caveats[0].text : '';
+  const rangeInfo = matchedTier ? describeMatchedRange(normalizedValue, matchedTier, canonicalUnit) : null;
 
-  if (isFlagged && matchedTier) {
-    const sourceName = primarySource ? primarySource.name : 'Clinical guidelines';
-    const sourceYear = primarySource && primarySource.year ? primarySource.year : 'guideline';
-    const symSourceName = symptomSource ? symptomSource.name : 'clinical literature';
+  if (isFlagged && matchedTier && rangeInfo) {
+    const sourceName = primarySource ? primarySource.name : null;
+    const sourceYear = primarySource && primarySource.year ? primarySource.year : null;
+    const symSourceName = symptomSource ? symptomSource.name : null;
     const matchedSymptomsStr = matchedSymptoms.map(s => s.label).join(', ');
+    const baseVars = {
+      value: input.value,
+      unit: input.unit,
+      tierLabel: rangeInfo.label,
+      source: sourceName,
+      year: sourceYear,
+      labRange: labRangeStr,
+      caveat: primaryCaveat
+    };
 
     if (symptomThresholdMet) {
       flagType = 'pattern';
       flagMessage = interpolateTemplate(rule.flagMessage.pattern, {
-        value: input.value,
-        unit: input.unit,
-        tierLabel: matchedTier.label,
-        source: sourceName,
-        year: sourceYear,
-        labRange: labRangeStr,
+        ...baseVars,
         symptomSource: symSourceName,
-        matchedSymptoms: matchedSymptomsStr,
-        caveat: primaryCaveat
+        matchedSymptoms: matchedSymptomsStr
       });
     } else {
       flagType = 'valueOnly';
-      flagMessage = interpolateTemplate(rule.flagMessage.valueOnly, {
-        value: input.value,
-        unit: input.unit,
-        tierLabel: matchedTier.label,
-        source: sourceName,
-        year: sourceYear,
-        labRange: labRangeStr,
-        caveat: primaryCaveat
-      });
+      flagMessage = interpolateTemplate(rule.flagMessage.valueOnly, baseVars);
     }
+    // Templates start with "Your ferritin"; use the display name instead of the rule id.
+    flagMessage = flagMessage.replace(`Your ${rule.marker} (`, `Your ${displayName} (`);
   } else {
     flagType = 'none';
-    flagMessage = `Your ${rule.marker} (${input.value} ${input.unit}) is within standard guideline limits. Lab range: ${labRangeStr}.`;
+    flagMessage = `Your ${displayName} (${input.value} ${input.unit}) is within standard guideline limits used here, so there is no guideline flag. Lab range: ${labRangeStr}. Symptoms that bother you are still worth discussing with a doctor.`;
   }
 
   return {
@@ -252,6 +296,10 @@ export function evaluateTier(
     caveats: rule.caveats,
     sourcesUsed,
     demographicsWarning,
-    gateCheck
+    gateCheck,
+    displayName,
+    tierDisplayLabel: rangeInfo ? rangeInfo.label : null,
+    direction: rangeInfo ? rangeInfo.direction : null,
+    minSymptoms: rule.minSymptoms
   };
 }
