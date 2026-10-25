@@ -4,7 +4,7 @@
 
 HerChart is a privacy-first lab-result explainer for adult women who are not pregnant. It puts your **ferritin**, **hemoglobin** or **TSH** result next to published guideline cutoffs, side by side with your own lab's printed range. It also turns the comparison into questions to take to your doctor.
 
-Live: [FILL: live URL, currently https://her-chart.vercel.app] · Repo: [FILL: repo URL] · Built for Recursion 2026, NIT Karnataka.
+Live: [https://her-chart.vercel.app] · · Built for Recursion 2026, NIT Karnataka.
 
 > HerChart is educational, not a medical device, and does not diagnose.
 
